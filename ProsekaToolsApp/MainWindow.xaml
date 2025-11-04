@@ -1,52 +1,84 @@
-<Window
+﻿<Window
     x:Class="ProsekaToolsApp.MainWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:local="using:ProsekaToolsApp"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:local="using:ProsekaToolsApp"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
 
-    <NavigationView x:Name="NavView"
-                    IsBackButtonVisible="Collapsed"
-                    PaneDisplayMode="Left"
-                    IsSettingsVisible="False"
-                    SelectionChanged="NavView_SelectionChanged">
-        
-        <NavigationView.MenuItems>
-            <NavigationViewItem Content="Tab 1" Tag="Tab1">
-                <NavigationViewItem.Icon>
-                    <SymbolIcon Symbol="Home"/>
-                </NavigationViewItem.Icon>
-            </NavigationViewItem>
-            <NavigationViewItem Content="Tab 2" Tag="Tab2">
-                <NavigationViewItem.Icon>
-                    <SymbolIcon Symbol="Document"/>
-                </NavigationViewItem.Icon>
-            </NavigationViewItem>
-            <NavigationViewItem Content="Tab 3" Tag="Tab3">
-                <NavigationViewItem.Icon>
-                    <SymbolIcon Symbol="Library"/>
-                </NavigationViewItem.Icon>
-            </NavigationViewItem>
-            <NavigationViewItem Content="Tab 4" Tag="Tab4">
-                <NavigationViewItem.Icon>
-                    <SymbolIcon Symbol="Setting"/>
-                </NavigationViewItem.Icon>
-            </NavigationViewItem>
-        </NavigationView.MenuItems>
+    <Grid>
+        <!-- Custom Title Bar -->
+        <Grid
+            x:Name="AppTitleBar"
+            Height="48"
+            Margin="48,0,0,0"
+            VerticalAlignment="Top"
+            Canvas.ZIndex="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
 
-        <Frame x:Name="ContentFrame" Padding="24">
-            <ScrollViewer>
-                <StackPanel Spacing="12">
-                    <TextBlock x:Name="PageTitle" 
-                              Text="Welcome to Proseka Tools" 
-                              Style="{StaticResource TitleTextBlockStyle}"/>
-                    <TextBlock x:Name="PageContent" 
-                              Text="Select a tab from the navigation menu to get started." 
-                              Style="{StaticResource BodyTextBlockStyle}"/>
-                </StackPanel>
-            </ScrollViewer>
-        </Frame>
-    </NavigationView>
+            <!-- App Icon and Title -->
+            <StackPanel
+                Grid.Column="0"
+                Margin="16,0,0,0"
+                VerticalAlignment="Center"
+                Orientation="Horizontal">
+                <Image
+                    Width="16"
+                    Height="16"
+                    Margin="0,0,12,0"
+                    Source="Assets/AppIcon.png"
+                    Visibility="Collapsed" />
+                <TextBlock
+                    VerticalAlignment="Center"
+                    Style="{StaticResource CaptionTextBlockStyle}"
+                    Text="Proseka Tools" />
+            </StackPanel>
+        </Grid>
+
+        <NavigationView
+            x:Name="NavView"
+            IsBackButtonVisible="Collapsed"
+            IsSettingsVisible="True"
+            PaneDisplayMode="Left"
+            SelectionChanged="NavView_SelectionChanged">
+            
+            <NavigationView.MenuItems>
+                <NavigationViewItem Content="数据抓取" Tag="Tab1">
+                    <NavigationViewItem.Icon>
+                        <SymbolIcon Symbol="Upload" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem Content="suite工具" Tag="Tab2">
+                    <NavigationViewItem.Icon>
+                        <SymbolIcon Symbol="Document" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem Content="Mysekai工具" Tag="Tab3">
+                    <NavigationViewItem.Icon>
+                        <SymbolIcon Symbol="Library" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+            </NavigationView.MenuItems>
+
+
+            <Frame x:Name="ContentFrame" Padding="40">
+                <ScrollViewer>
+                    <StackPanel Spacing="12">
+                        <TextBlock
+                            x:Name="PageTitle"
+                            Style="{StaticResource TitleTextBlockStyle}"
+                            Text="Welcome to Proseka Tools" />
+                        <TextBlock
+                            x:Name="PageContent"
+                            Style="{StaticResource BodyTextBlockStyle}"
+                            Text="Select a tab from the navigation menu to get started." />
+                    </StackPanel>
+                </ScrollViewer>
+            </Frame>
+        </NavigationView>
+    </Grid>
 </Window>

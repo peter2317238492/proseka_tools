@@ -52,3 +52,8 @@ CodeCoverage/
 *.VisualState.xml
 TestResult.xml
 nunit-*.xml
+
+#visual studio and code
+.vs/
+.vscode/
+*.code-workspace

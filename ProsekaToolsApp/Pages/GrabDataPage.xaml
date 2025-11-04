@@ -1,0 +1,24 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<Page
+    x:Class="ProsekaToolsApp.Pages.GrabDataPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <StackPanel Padding="24">
+        <TextBlock
+            FontSize="30"
+            FontWeight="SemiBold"
+            Text="数据抓取" />
+        <TextBlock
+            FontSize="12"
+            Margin="0,24,0,0"
+            FontWeight="SemiBold"
+            Text="当前本机ip:" />
+        <TextBlock
+        FontSize="14"
+        FontWeight="Normal"
+        Text="{Binding LocalIp}" />
+        <Button Margin="0,12,0,0" Content="生成MitM配置文件" />
+        <Button Margin="0,12,0,0" Content="开始抓取" />
+    </StackPanel>
+</Page>

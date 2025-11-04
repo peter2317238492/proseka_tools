@@ -1,5 +1,6 @@
-using Microsoft.UI.Xaml;
+﻿using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+
 
 namespace ProsekaToolsApp
 {
@@ -9,37 +10,38 @@ namespace ProsekaToolsApp
         {
             this.InitializeComponent();
             Title = "Proseka Tools";
-            
-            // Select the first item by default
-            NavView.SelectedItem = NavView.MenuItems[0];
+			ExtendsContentIntoTitleBar = true;
+            SetTitleBar(AppTitleBar);
+			// Select the first item by default
+			NavView.SelectedItem = NavView.MenuItems[0];
         }
 
-        private void NavView_SelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
-        {
-            if (args.SelectedItem is NavigationViewItem item && item.Tag != null)
-            {
-                string tag = item.Tag.ToString();
-                
-                switch (tag)
-                {
-                    case "Tab1":
-                        PageTitle.Text = "Tab 1 - Home";
-                        PageContent.Text = "This is the content for Tab 1. You can add your home page content here.";
-                        break;
-                    case "Tab2":
-                        PageTitle.Text = "Tab 2 - Documents";
-                        PageContent.Text = "This is the content for Tab 2. You can add your document management features here.";
-                        break;
-                    case "Tab3":
-                        PageTitle.Text = "Tab 3 - Library";
-                        PageContent.Text = "This is the content for Tab 3. You can add your library features here.";
-                        break;
-                    case "Tab4":
-                        PageTitle.Text = "Tab 4 - Settings";
-                        PageContent.Text = "This is the content for Tab 4. You can add your settings and preferences here.";
-                        break;
-                }
-            }
-        }
-    }
+		private void NavView_SelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
+		{
+			// ① 内置“设置”按钮走这里
+			if (args.IsSettingsSelected)
+			{
+				ContentFrame.Navigate(typeof(Pages.SettingsPage));
+				return;
+			}
+			if (args.SelectedItem is NavigationViewItem item)
+			{
+				switch (item.Tag)
+				{
+					case "Tab1":
+						ContentFrame.Navigate(typeof(Pages.GrabDataPage));
+						break;
+
+					case "Tab2":
+						ContentFrame.Navigate(typeof(Pages.Tab2Page));
+						break;
+
+					case "Tab3":
+						ContentFrame.Navigate(typeof(Pages.Tab3Page));
+						break;
+				}
+			}
+		}
+		     
+	}
 }
