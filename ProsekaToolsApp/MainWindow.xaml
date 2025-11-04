@@ -14,7 +14,7 @@
                     SelectionChanged="NavView_SelectionChanged">
         
         <NavigationView.MenuItems>
-            <NavigationViewItem Content="Tab 1" Tag="Tab1" Icon="Home">
+            <NavigationViewItem Content="Tab 1" Tag="Tab1">
                 <NavigationViewItem.Icon>
                     <SymbolIcon Symbol="Home"/>
                 </NavigationViewItem.Icon>

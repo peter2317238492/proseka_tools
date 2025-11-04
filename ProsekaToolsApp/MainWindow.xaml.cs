@@ -16,7 +16,7 @@ namespace ProsekaToolsApp
 
         private void NavView_SelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
         {
-            if (args.SelectedItem is NavigationViewItem item)
+            if (args.SelectedItem is NavigationViewItem item && item.Tag != null)
             {
                 string tag = item.Tag.ToString();
                 
