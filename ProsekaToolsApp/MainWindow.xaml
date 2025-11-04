@@ -1,0 +1,52 @@
+<Window
+    x:Class="ProsekaToolsApp.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:ProsekaToolsApp"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <NavigationView x:Name="NavView"
+                    IsBackButtonVisible="Collapsed"
+                    PaneDisplayMode="Left"
+                    IsSettingsVisible="False"
+                    SelectionChanged="NavView_SelectionChanged">
+        
+        <NavigationView.MenuItems>
+            <NavigationViewItem Content="Tab 1" Tag="Tab1" Icon="Home">
+                <NavigationViewItem.Icon>
+                    <SymbolIcon Symbol="Home"/>
+                </NavigationViewItem.Icon>
+            </NavigationViewItem>
+            <NavigationViewItem Content="Tab 2" Tag="Tab2">
+                <NavigationViewItem.Icon>
+                    <SymbolIcon Symbol="Document"/>
+                </NavigationViewItem.Icon>
+            </NavigationViewItem>
+            <NavigationViewItem Content="Tab 3" Tag="Tab3">
+                <NavigationViewItem.Icon>
+                    <SymbolIcon Symbol="Library"/>
+                </NavigationViewItem.Icon>
+            </NavigationViewItem>
+            <NavigationViewItem Content="Tab 4" Tag="Tab4">
+                <NavigationViewItem.Icon>
+                    <SymbolIcon Symbol="Setting"/>
+                </NavigationViewItem.Icon>
+            </NavigationViewItem>
+        </NavigationView.MenuItems>
+
+        <Frame x:Name="ContentFrame" Padding="24">
+            <ScrollViewer>
+                <StackPanel Spacing="12">
+                    <TextBlock x:Name="PageTitle" 
+                              Text="Welcome to Proseka Tools" 
+                              Style="{StaticResource TitleTextBlockStyle}"/>
+                    <TextBlock x:Name="PageContent" 
+                              Text="Select a tab from the navigation menu to get started." 
+                              Style="{StaticResource BodyTextBlockStyle}"/>
+                </StackPanel>
+            </ScrollViewer>
+        </Frame>
+    </NavigationView>
+</Window>
