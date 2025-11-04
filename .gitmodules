@@ -1,0 +1,3 @@
+[submodule "sekai_xray"]
+	path = sekai_xray
+	url = https://github.com/MiddleRed/pjsk-mysekai-xray.git
