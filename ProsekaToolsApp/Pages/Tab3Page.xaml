@@ -59,7 +59,7 @@
                 <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
                     <Button Content="+" Width="32" Height="32" Click="ZoomInButton_Click"/>
                     <Button Content="-" Width="32" Height="32" Click="ZoomOutButton_Click"/>
-                    <Button Content="重置" Width="48" Height="32" Click="ResetZoomButton_Click"/>
+                    <Button Content="重置" Width="60" Height="32" Click="ResetZoomButton_Click"/>
                 </StackPanel>
             </StackPanel>
 

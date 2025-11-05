@@ -42,22 +42,32 @@
             <Run Text=":8000/" />
         </TextBlock>
 
-        <!-- 数据包获取状态显示框 -->
+        <!--  数据包获取状态显示框  -->
         <Border
             Height="1"
             Margin="0,24,0,12"
             Background="#33000000" />
-        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-            <TextBlock Text="数据包获取状态" FontSize="16" FontWeight="SemiBold"/>
-            <Button Content="清空" Margin="12,0,0,0" Click="ClearLogs_Click"/>
+        <StackPanel VerticalAlignment="Center" Orientation="Horizontal">
+            <TextBlock
+                FontSize="16"
+                FontWeight="SemiBold"
+                Text="数据包获取状态" />
+            <Button
+                Margin="12,0,0,0"
+                Click="ClearLogs_Click"
+                Content="清空" />
         </StackPanel>
-        <ListView x:Name="LogsList"
-                  Margin="0,8,0,0"
-                  Height="260"
-                  ItemsSource="{Binding CaptureLogs}">
+        <ListView
+            x:Name="LogsList"
+            Height="260"
+            Margin="0,8,0,0"
+            ItemsSource="{Binding CaptureLogs}">
             <ListView.ItemTemplate>
                 <DataTemplate>
-                    <TextBlock Text="{Binding}" TextWrapping="WrapWholeWords" Opacity="0.9" />
+                    <TextBlock
+                        Opacity="0.9"
+                        Text="{Binding}"
+                        TextWrapping="WrapWholeWords" />
                 </DataTemplate>
             </ListView.ItemTemplate>
         </ListView>

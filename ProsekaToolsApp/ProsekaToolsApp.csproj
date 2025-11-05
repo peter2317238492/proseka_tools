@@ -1,18 +1,33 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
+    <UseWinUI>true</UseWinUI>
+
+    <!-- Targeting -->
     <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
     <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
-    <RootNamespace>ProsekaToolsApp</RootNamespace>
-    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+
+    <!-- Packaging/Publishing -->
+    <WindowsPackageType>None</WindowsPackageType>
     <Platforms>x86;x64;ARM64</Platforms>
     <RuntimeIdentifiers>win-x86;win-x64;win-arm64</RuntimeIdentifiers>
     <PublishProfile>win-$(Platform).pubxml</PublishProfile>
-    <UseWinUI>true</UseWinUI>
-    <EnableMsixTooling>true</EnableMsixTooling>
-    <EnableWindowsTargeting>true</EnableWindowsTargeting>
-    <WindowsPackageType>None</WindowsPackageType>
+
+    <!-- WinAppSDK + .NET runtime settings for MSIX packaging -->
     <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <SelfContained>true</SelfContained>
+    <PublishTrimmed>false</PublishTrimmed>
+
+    <!-- IMPORTANT: Single-file publish is incompatible with WinUI 3/MSIX (MRT Core/resources).
+         Keep it disabled to avoid startup crashes when packaged. -->
+    <PublishSingleFile>false</PublishSingleFile>
+
+    <!-- Include native libs separately (only relevant for single-file). Safe to keep false/omitted. -->
+    <IncludeNativeLibrariesForSelfExtract>false</IncludeNativeLibrariesForSelfExtract>
+
+    <RootNamespace>ProsekaToolsApp</RootNamespace>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
   </PropertyGroup>
   <ItemGroup>
     <None Remove="Pages\GrabDataPage.xaml" />
@@ -38,8 +53,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Align SDK BuildTools with the packaging project to avoid mismatches -->
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.5.240311000" />
-    <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.22621.756" />
+    <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.26100.1742" />
   </ItemGroup>
 
   <ItemGroup>

@@ -10,86 +10,118 @@
 
     <ScrollViewer Background="Transparent">
         <StackPanel Padding="24" Spacing="16">
-            <TextBlock FontSize="30" FontWeight="SemiBold" Text="设置" />
+            <TextBlock
+                FontSize="30"
+                FontWeight="SemiBold"
+                Text="设置" />
 
-            <!-- Appearance & behavior section -->
+            <!--  Appearance & behavior section  -->
             <StackPanel Spacing="12">
-                <TextBlock Text="外观与行为" Style="{StaticResource SubtitleTextBlockStyle}" />
+                <TextBlock Style="{StaticResource SubtitleTextBlockStyle}" Text="外观与行为" />
 
-                <!-- Card 1: App theme -->
-                <Border CornerRadius="8" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" 
-                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
+                <!--  Card 1: App theme  -->
+                <Border
+                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    CornerRadius="8">
                     <Grid Padding="16">
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="220"/>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="220" />
                         </Grid.ColumnDefinitions>
                         <StackPanel>
-                            <TextBlock Text="应用主题" Style="{StaticResource BodyStrongTextBlockStyle}" />
-                            <TextBlock Text="选择应用的显示主题" Opacity="0.7" />
+                            <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="应用主题" />
+                            <TextBlock Opacity="0.7" Text="选择应用的显示主题" />
                         </StackPanel>
-                        <ComboBox x:Name="ThemeCombo" Grid.Column="1" HorizontalAlignment="Right" Width="200" SelectionChanged="ThemeCombo_SelectionChanged">
-                            <ComboBoxItem x:Name="FollowSystemItem" Content="跟随系统"/>
-                            <ComboBoxItem x:Name="LightItem" Content="浅色"/>
-                            <ComboBoxItem x:Name="DarkItem" Content="深色"/>
+                        <ComboBox
+                            x:Name="ThemeCombo"
+                            Grid.Column="1"
+                            Width="200"
+                            HorizontalAlignment="Right"
+                            SelectionChanged="ThemeCombo_SelectionChanged">
+                            <ComboBoxItem x:Name="FollowSystemItem" Content="跟随系统" />
+                            <ComboBoxItem x:Name="LightItem" Content="浅色" />
+                            <ComboBoxItem x:Name="DarkItem" Content="深色" />
                         </ComboBox>
                     </Grid>
                 </Border>
 
-                <!-- Card 2: Navigation style -->
-                <Border CornerRadius="8" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
+                <!--  Card 2: Navigation style  -->
+                <Border
+                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    CornerRadius="8">
                     <Grid Padding="16">
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="220"/>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="220" />
                         </Grid.ColumnDefinitions>
                         <StackPanel>
-                            <TextBlock Text="导航位置" Style="{StaticResource BodyStrongTextBlockStyle}" />
-                            <TextBlock Text="选择侧边栏显示位置" Opacity="0.7" />
+                            <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="导航位置" />
+                            <TextBlock Opacity="0.7" Text="选择侧边栏显示位置" />
                         </StackPanel>
-                        <ComboBox Grid.Column="1" HorizontalAlignment="Right" Width="200">
-                            <ComboBoxItem Content="左侧" IsSelected="True"/>
-                            <ComboBoxItem Content="顶部"/>
+                        <ComboBox
+                            Grid.Column="1"
+                            Width="200"
+                            HorizontalAlignment="Right">
+                            <ComboBoxItem Content="左侧" IsSelected="True" />
+                            <ComboBoxItem Content="顶部" />
                         </ComboBox>
                     </Grid>
                 </Border>
 
-                <!-- Card 3: Sound -->
-                <Border CornerRadius="8" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
+                <!--  Card 3: Sound  -->
+                <Border
+                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    CornerRadius="8">
                     <Grid Padding="16">
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="220"/>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="220" />
                         </Grid.ColumnDefinitions>
                         <StackPanel>
-                            <TextBlock Text="声音" Style="{StaticResource BodyStrongTextBlockStyle}" />
-                            <TextBlock Text="启用或关闭音效" Opacity="0.7" />
+                            <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="声音" />
+                            <TextBlock Opacity="0.7" Text="启用或关闭音效" />
                         </StackPanel>
-                        <ToggleSwitch Grid.Column="1" HorizontalAlignment="Right"/>
+                        <ToggleSwitch Grid.Column="1" HorizontalAlignment="Right" />
                     </Grid>
                 </Border>
             </StackPanel>
 
-            <!-- About section -->
+            <!--  About section  -->
             <StackPanel Spacing="12">
-                <TextBlock Text="关于" Style="{StaticResource SubtitleTextBlockStyle}" />
-                <Border CornerRadius="8" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
+                <TextBlock Style="{StaticResource SubtitleTextBlockStyle}" Text="关于" />
+                <Border
+                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    CornerRadius="8">
                     <Grid Padding="16">
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
-                        <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
-                            <SymbolIcon Symbol="Contact" Width="32" Height="32"/>
+                        <StackPanel
+                            VerticalAlignment="Center"
+                            Orientation="Horizontal"
+                            Spacing="12">
+                            <SymbolIcon
+                                Width="32"
+                                Height="32"
+                                Symbol="Contact" />
                             <StackPanel>
-                                <TextBlock Text="Proseka Tools" Style="{StaticResource BodyStrongTextBlockStyle}" />
-                                <TextBlock Text="© 2025" Opacity="0.7" />
+                                <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="Proseka Tools" />
+                                <TextBlock Opacity="0.7" Text="© 2025" />
                             </StackPanel>
                         </StackPanel>
-                        <TextBlock Grid.Column="1" VerticalAlignment="Center" Text="v1.0.0" />
+                        <TextBlock
+                            Grid.Column="1"
+                            VerticalAlignment="Center"
+                            Text="v1.0.0" />
                     </Grid>
                 </Border>
             </StackPanel>
