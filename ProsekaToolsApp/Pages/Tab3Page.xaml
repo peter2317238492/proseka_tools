@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Page
     x:Class="ProsekaToolsApp.Pages.Tab3Page"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -9,6 +9,45 @@
     mc:Ignorable="d">
 
     <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- 左半边：解密 -->
+        <ScrollViewer Grid.Column="0">
+            <StackPanel Spacing="12" Padding="24">
+                <TextBlock FontSize="24" FontWeight="SemiBold" Text="解密 (API apidecrypt)"/>
+
+                <TextBlock Text="地区 (region)"/>
+                <ComboBox x:Name="RegionCombo" SelectedIndex="0" Width="180">
+                    <ComboBoxItem Content="jp"/>
+                    <ComboBoxItem Content="tw"/>
+                    <ComboBoxItem Content="en"/>
+                    <ComboBoxItem Content="kr"/>
+                    <ComboBoxItem Content="cn"/>
+                </ComboBox>
+
+                <CheckBox x:Name="UseLatestCheckBox" IsChecked="True" Content="使用最新的 sekai 数据包 (captures/mysekai)"/>
+
+                <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                    <Button x:Name="ChooseFileButton" Content="选择文件" Click="ChooseFileButton_Click"/>
+                    <TextBox x:Name="SelectedFileTextBox" IsReadOnly="True" MinWidth="380" PlaceholderText="未选择文件"/>
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Button x:Name="StartDecryptButton" Content="开始解密" Click="StartDecryptButton_Click"/>
+                    <ProgressRing x:Name="WorkingRing" IsActive="False" Width="20" Height="20"/>
+                </StackPanel>
+
+                <TextBlock x:Name="StatusText" TextWrapping="Wrap"/>
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- 右半边预留 -->
+        <Grid Grid.Column="1">
+            <TextBlock Margin="24" Opacity="0.5" Text="右侧预留"/>
+        </Grid>
 
     </Grid>
 </Page>

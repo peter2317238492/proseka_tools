@@ -10,15 +10,56 @@
             FontWeight="SemiBold"
             Text="数据抓取" />
         <TextBlock
-            FontSize="12"
             Margin="0,24,0,0"
+            FontSize="12"
             FontWeight="SemiBold"
             Text="当前本机ip:" />
         <TextBlock
-        FontSize="14"
-        FontWeight="Normal"
-        Text="{Binding LocalIp}" />
+            FontSize="14"
+            FontWeight="Normal"
+            Text="{Binding LocalIp}" />
         <Button Margin="0,12,0,0" Content="生成MitM配置文件" />
-        <Button Margin="0,12,0,0" Content="开始抓取" />
+        <!--  Capture Server 开关与状态  -->
+        <Border
+            Height="1"
+            Margin="0,24,0,12"
+            Background="#33000000" />
+        <TextBlock
+            FontSize="16"
+            FontWeight="SemiBold"
+            Text="Capture Server (:8000)" />
+        <ToggleSwitch
+            x:Name="ServerToggle"
+            Margin="0,8,0,0"
+            Header="开启/关闭"
+            OffContent="已停止"
+            OnContent="运行中"
+            Toggled="ServerToggle_Toggled" />
+        <TextBlock Margin="0,8,0,0" Text="{Binding ServerStatus}" />
+        <TextBlock Margin="0,4,0,0" Opacity="0.7">
+            <Run Text="监听: http://" />
+            <Run Text="{Binding LocalIp}" />
+            <Run Text=":8000/" />
+        </TextBlock>
+
+        <!-- 数据包获取状态显示框 -->
+        <Border
+            Height="1"
+            Margin="0,24,0,12"
+            Background="#33000000" />
+        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+            <TextBlock Text="数据包获取状态" FontSize="16" FontWeight="SemiBold"/>
+            <Button Content="清空" Margin="12,0,0,0" Click="ClearLogs_Click"/>
+        </StackPanel>
+        <ListView x:Name="LogsList"
+                  Margin="0,8,0,0"
+                  Height="260"
+                  ItemsSource="{Binding CaptureLogs}">
+            <ListView.ItemTemplate>
+                <DataTemplate>
+                    <TextBlock Text="{Binding}" TextWrapping="WrapWholeWords" Opacity="0.9" />
+                </DataTemplate>
+            </ListView.ItemTemplate>
+        </ListView>
     </StackPanel>
 </Page>

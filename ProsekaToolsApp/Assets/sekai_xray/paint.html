@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Project SEKAI - MySekai Xray</title>
+    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+    <script>
+        const SCENES = {
+            scene1: {
+                physicalWidth: 33.333,
+                offsetX: 0,
+                offsetY: -40,
+                imagePath: "img/grassland.png",
+                xDirection: 'x-',
+                yDirection: 'y-',
+                reverseXY: true,
+            },
+            scene2: {
+                physicalWidth: 24.806,
+                offsetX: -62.015,
+                offsetY: 20.672,
+                imagePath: "img/flowergarden.png",
+                xDirection: 'x-',
+                yDirection: 'y-',
+                reverseXY: true,
+            },
+            scene3: {
+                physicalWidth: 20.513,
+                offsetX: 0,
+                offsetY: 80,
+                imagePath: "img/beach.png",
+                xDirection: 'x+',
+                yDirection: 'y-',
+                reverseXY: false,
+            },
+            scene4: {
+                physicalWidth: 21.333,
+                offsetX: 0,
+                offsetY: -106.667,
+                imagePath: "img/memorialplace.png",
+                xDirection: 'x+',
+                yDirection: 'y-',
+                reverseXY: false,
+            }
+        };
+
+
+        const FIXTURE_COLORS = {
+            112:  '#f9f9f9',
+
+            1001: '#da6d42', // wood
+            1002: '#da6d42',
+            1003: '#da6d42',
+            1004: '#da6d42',
+            
+            2001: '#878685', // iron
+            2002: '#d5750a', // copper
+            2003: '#d5d5d5', // stone
+            2004: '#a7c7cb',
+            2005: '#9933cc',
+
+            3001: '#c95a49',
+
+            4001: '#f8729a', // flower
+            4002: '#f8729a', 
+            4003: '#f8729a', 
+            4004: '#f8729a',
+            4005: '#f8729a',
+            4006: '#f8729a',
+            4007: '#f8729a',
+            4008: '#f8729a',
+            4009: '#f8729a', // cotton
+            4010: '#f8729a',
+            4011: '#f8729a',
+            4012: '#f8729a',
+            4013: '#f8729a',
+            4014: '#f8729a',
+            4015: '#f8729a',
+            4016: '#f8729a',
+            4017: '#f8729a',
+            4018: '#f8729a',
+            4019: '#f8729a',
+            4020: '#f8729a',
+
+            5001: '#f6f5f2',
+            5002: '#f6f5f2',
+            5003: '#f6f5f2',
+            5004: '#f6f5f2',
+            5101: '#f6f5f2',
+            5102: '#f6f5f2',
+            5103: '#f6f5f2',
+            5104: '#f6f5f2',
+
+            6001: '#6f4e37',
+
+            7001: '#a5d9ff',
+        };
+
+        const ITEM_TEXTURES = {
+            mysekai_material: {
+                "1": "./icon/Texture2D/item_wood_1.png",
+                "2": "./icon/Texture2D/item_wood_2.png",
+                "3": "./icon/Texture2D/item_wood_3.png",
+                "4": "./icon/Texture2D/item_wood_4.png",
+                "5": "./icon/Texture2D/item_wood_5.png",
+                "6": "./icon/Texture2D/item_mineral_1.png",
+                "7": "./icon/Texture2D/item_mineral_2.png",
+                "8": "./icon/Texture2D/item_mineral_3.png",
+                "9": "./icon/Texture2D/item_mineral_4.png",
+                "10": "./icon/Texture2D/item_mineral_5.png",
+                "11": "./icon/Texture2D/item_mineral_6.png",
+                "12": "./icon/Texture2D/item_mineral_7.png",
+                "13": "./icon/Texture2D/item_junk_1.png",
+                "14": "./icon/Texture2D/item_junk_2.png",
+                "15": "./icon/Texture2D/item_junk_3.png",
+                "16": "./icon/Texture2D/item_junk_4.png",
+                "17": "./icon/Texture2D/item_junk_5.png",
+                "18": "./icon/Texture2D/item_junk_6.png",
+                "19": "./icon/Texture2D/item_junk_7.png",
+                "20": "./icon/Texture2D/item_plant_1.png",
+                "21": "./icon/Texture2D/item_plant_2.png",
+                "22": "./icon/Texture2D/item_plant_3.png",
+                "23": "./icon/Texture2D/item_plant_4.png",
+                "24": "./icon/Texture2D/item_tone_8.png",
+                "32": "./icon/Texture2D/item_junk_8.png",
+                "33": "./icon/Texture2D/item_mineral_8.png",
+                "34": "./icon/Texture2D/item_junk_9.png",
+                "61": "./icon/Texture2D/item_junk_10.png",
+                "62": "./icon/Texture2D/item_junk_11.png",
+                "63": "./icon/Texture2D/item_junk_12.png",
+                "64": "./icon/Texture2D/item_mineral_9.png",
+                "65": "./icon/Texture2D/item_mineral_10.png",
+            },
+            mysekai_item: {
+                "7": "./icon/Texture2D/item_blueprint_fragment.png",
+            },
+            mysekai_fixture: {
+                "118": "./icon/Texture2D/mdl_non1001_before_sapling1_118.png",
+                "119": "./icon/Texture2D/mdl_non1001_before_sapling1_119.png",
+                "120": "./icon/Texture2D/mdl_non1001_before_sapling1_120.png",
+                "121": "./icon/Texture2D/mdl_non1001_before_sapling1_121.png",
+                "126": "./icon/Texture2D/mdl_non1001_before_sprout1_126.png",
+                "127": "./icon/Texture2D/mdl_non1001_before_sprout1_127.png",
+                "128": "./icon/Texture2D/mdl_non1001_before_sprout1_128.png",
+                "129": "./icon/Texture2D/mdl_non1001_before_sprout1_129.png",
+                "130": "./icon/Texture2D/mdl_non1001_before_sprout1_130.png",
+                "474": "./icon/Texture2D/mdl_non1001_before_sprout1_474.png",
+                "475": "./icon/Texture2D/mdl_non1001_before_sprout1_475.png",
+                "476": "./icon/Texture2D/mdl_non1001_before_sprout1_476.png",
+                "477": "./icon/Texture2D/mdl_non1001_before_sprout1_477.png",
+                "478": "./icon/Texture2D/mdl_non1001_before_sprout1_478.png",
+                "479": "./icon/Texture2D/mdl_non1001_before_sprout1_479.png",
+                "480": "./icon/Texture2D/mdl_non1001_before_sprout1_480.png",
+                "481": "./icon/Texture2D/mdl_non1001_before_sprout1_481.png",
+                "482": "./icon/Texture2D/mdl_non1001_before_sprout1_482.png",
+                "483": "./icon/Texture2D/mdl_non1001_before_sprout1_483.png"
+            },
+            mysekai_music_record: {
+                352: 'music352.png'
+            }
+        };
+        
+        const RARE_ITEM = {
+            mysekai_material: [5,12,20, 24, 32, 33, 61, 62, 63, 64, 65], 
+            mysekai_item: [7], 
+            mysekai_music_record: [],
+            mysekai_fixture: [118,119,120,121]
+        };
+
+        const SUPER_RARE_ITEM = {
+            mysekai_material: [5,12,20,24], 
+            mysekai_item: [], 
+            mysekai_fixture: [],
+            mysekai_music_record: []
+        };
+    </script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            position: relative;
+            max-width: 1920px;
+            width: 100%;
+            text-align: center;
+        }
+        .image-container {
+            position: relative;
+            display: inline-block;
+        }
+        .image-container img {
+            max-width: 100%;
+            height: auto;
+            display: block;
+        }
+        .grid-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+        .controls {
+            margin-top: 20px;
+        }
+        .controls label {
+            font-size: 16px;
+            margin-right: 10px;
+        }
+        .controls input {
+            padding: 5px;
+            font-size: 16px;
+            width: 100px;
+        }
+        .controls textarea {
+            width: 400px;
+            height: 100px;
+            margin-bottom: 10px;
+        }
+        .direction-buttons {
+            margin-top: 10px;
+        }
+        .direction-buttons button {
+            margin: 5px;
+            padding: 10px 20px;
+            cursor: pointer;
+        }
+        .item-list {
+            position: absolute;
+            background: rgba(138, 138, 138, 0.7);
+            border-radius: 3px;
+            font-size: 12px;
+            text-align: left;
+        }
+        .item-list img {
+            width: 20px;
+            height: 20px;
+            vertical-align: middle;
+            position: relative;
+        }
+        .item-list .quantity {
+            font-size: 8px;
+            position: absolute;
+            bottom: 0;
+            right: 0;
+            color: black;
+            background: rgba(255, 255, 255, 0.5);
+            border-radius: 50%;
+            padding: 2px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="image-container">
+            <img src="image.png" alt="示例图片" id="image">
+            <canvas class="grid-canvas" id="gridCanvas"></canvas>
+        </div>
+    </div>
+
+    <div class="controls">
+       
+        <textarea id="jsonInput" placeholder="Enter JSON data here"></textarea>
+        <br>
+        <label for="sceneSelect">Select Scene:</label>
+        <select id="sceneSelect">
+            <option value="scene1">さいしょの原っぱ</option>
+            <option value="scene2">彩りの花畑</option>
+            <option value="scene3">願いの砂浜</option>
+            <option value="scene4">忘れ去られた場所</option>
+        </select>
+        <button onclick="applyScene()">Apply Scene</button>
+        <br>
+        <button onclick="parseAndMarkPoints()">Mark Points</button>
+        <button onclick="captureScreenshot()">Screenshot</button>
+        <br><br>
+        <details>
+            <summary>Advance Settings</summary>
+            <label for="physicalWidth">Grid Width(px):</label>
+            <input type="number" id="physicalWidth" value="10" min="1" step="1">
+            <label for="offsetX">X Offset(px):</label>
+            <input type="number" id="offsetX" value="0" step="1">
+            <label for="offsetY">Y Offset(px):</label>
+            <input type="number" id="offsetY" value="0" step="1">
+            <button onclick="drawGrid()">Draw Grid</button>
+            <button onclick="clearGrid()">Clear Canvas</button>
+            <br>
+            <div class="direction-buttons">
+                <button onclick="setDirection('x+', 'y+')">X+ Y+</button>
+                <button onclick="setDirection('x+', 'y-')">X+ Y-</button>
+                <button onclick="setDirection('x-', 'y+')">X- Y+</button>
+                <button onclick="setDirection('x-', 'y-')">X- Y-</button>
+            </div>
+        </details>
+    </div>
+
+    <script>
+        // import html2canvas from 'html2canvas';
+        async function captureScreenshot() {
+            const container = document.querySelector('.container');
+
+            // 获取container的位置信息
+            const rect = container.getBoundingClientRect();
+            
+            function screenshot(canvas) {
+                // 将截图转换为图片
+                const imgData = canvas.toDataURL('image/png');
+
+                // 创建一个下载链接
+                const link = document.createElement('a');
+                link.href = imgData;
+                link.download = 'screenshot.png'; // 设置下载的文件名
+
+                // 触发点击事件，自动下载截图
+                link.click();
+            }
+
+            // 获取整个document内容
+            cav = await html2canvas(document.body, {
+                x: rect.left + window.scrollX,  // 设置截图区域的左上角X坐标
+                y: rect.top + window.scrollY,   // 设置截图区域的左上角Y坐标
+                width: rect.width,              // 设置截图区域的宽度
+                height: rect.height,            // 设置截图区域的高度
+                scrollX: 0,                     // 关闭滚动条效果
+                scrollY: 0                      // 关闭滚动条效果
+            });
+            screenshot(cav);
+        }
+
+        let xDirection = 'x+'; // 当前的X轴方向
+        let yDirection = 'y-'; // 当前的Y轴方向
+        let reverseXY = false; // 是否反转XY轴
+
+        function applyScene() {
+            const selectedSceneKey = document.getElementById('sceneSelect').value;
+            const selectedScene = SCENES[selectedSceneKey];
+
+            if (selectedScene) {
+                physicalWidthInput.value = selectedScene.physicalWidth;
+                offsetXInput.value = selectedScene.offsetX;
+                offsetYInput.value = selectedScene.offsetY;
+                image.src = selectedScene.imagePath;
+                xDirection = selectedScene.xDirection;
+                yDirection = selectedScene.yDirection;
+                reverseXY = selectedScene.reverseXY;
+
+                // 重新绘制网格和清空物品栏
+
+                initCanvas();
+                // drawGrid();
+            } else {
+                console.warn(`未找到场景: ${selectedSceneKey}`);
+            }
+        }
+
+        const image = document.getElementById('image');
+        const canvas = document.getElementById('gridCanvas');
+        const physicalWidthInput = document.getElementById('physicalWidth');
+        const offsetXInput = document.getElementById('offsetX');
+        const offsetYInput = document.getElementById('offsetY');
+        const jsonInput = document.getElementById('jsonInput');
+        let ctx = canvas.getContext('2d');
+
+        function initCanvas() {
+            canvas.width = image.clientWidth;
+            canvas.height = image.clientHeight;
+        }
+
+        window.addEventListener('resize', () => {
+            initCanvas();
+            // drawGrid();  // 重新绘制网格
+        });
+
+        function drawGrid() {
+            const physicalGridWidth = parseFloat(physicalWidthInput.value);
+            const offsetX = parseFloat(offsetXInput.value);
+            const offsetY = parseFloat(offsetYInput.value);
+            const displayWidth = image.clientWidth;
+            const displayHeight = image.clientHeight;
+            const naturalWidth = image.naturalWidth;
+            const naturalHeight = image.naturalHeight;
+
+            const scaleX = displayWidth / naturalWidth;
+            const scaleY = displayHeight / naturalHeight;
+
+            const displayGridWidth = physicalGridWidth  * scaleX;
+
+            // ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const originX = displayWidth / 2 + offsetX;
+            const originY = displayHeight / 2 + offsetY;
+
+            ctx.strokeStyle = 'rgba(255, 0, 0, 0.3)';
+            ctx.lineWidth = 1;
+
+            for (let y = originY; y >= 0; y -= displayGridWidth) {
+                drawHorizontalLine(y);
+            }
+            for (let y = originY + displayGridWidth; y <= displayHeight; y += displayGridWidth) {
+                drawHorizontalLine(y);
+            }
+
+            for (let x = originX; x >= 0; x -= displayGridWidth) {
+                drawVerticalLine(x);
+            }
+            for (let x = originX + displayGridWidth; x <= displayWidth; x += displayGridWidth) {
+                drawVerticalLine(x);
+            }
+
+            drawCoordinateAxes(originX, originY);
+        }
+
+        function drawHorizontalLine(y) {
+            ctx.beginPath();
+            ctx.moveTo(0, y);
+            ctx.lineTo(canvas.width, y);
+            ctx.stroke();
+        }
+
+        function drawVerticalLine(x) {
+            ctx.beginPath();
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x, canvas.height);
+            ctx.stroke();
+        }
+
+        function drawCoordinateAxes(originX, originY) {
+            const crossSize = 3; // 设置原点标记的叉的大小
+
+            ctx.strokeStyle = 'black';
+            ctx.beginPath();
+            ctx.moveTo(originX - crossSize, originY - crossSize);
+            ctx.lineTo(originX + crossSize, originY + crossSize);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(originX + crossSize, originY - crossSize);
+            ctx.lineTo(originX - crossSize, originY + crossSize);
+            ctx.stroke();
+        }
+
+        function parseAndMarkPoints() {
+            try {
+                const points = JSON.parse(jsonInput.value);
+                if (!Array.isArray(points)) {
+                    throw new Error("输入的JSON必须是一个数组");
+                }
+                // drawGrid();
+                initCanvas();
+                clearItemLists();
+
+                if (!reverseXY){
+                    points.forEach(point => markPoint(point));
+                } else {
+                    points.forEach(point => markPoint({location: [point.location[1], point.location[0]], fixtureId: point.fixtureId, reward: point.reward}));
+                }
+
+                // 调整物品栏位置以避免重叠
+                adjustItemListPositions(5, 5); // 最大重叠宽度和高度的阈值为5px
+            } catch (error) {
+                alert("JSON解析错误: " + error.message);
+            }
+        }
+
+        function doContainsRareItem(reward, isSuperRare = false) {
+            let compareList = isSuperRare ? SUPER_RARE_ITEM : RARE_ITEM;
+            for (const category in reward) {
+                if (reward.hasOwnProperty(category) && compareList.hasOwnProperty(category)) {
+                    for (const itemId of Object.keys(reward[category])) {
+                        if (compareList[category].includes(parseInt(itemId))) {
+                            return true;
+                        }
+                    }
+                }
+            }
+            return false;
+        }
+
+        function markPoint(point) {
+            const [x, y] = point.location;
+            const offsetX = parseFloat(offsetXInput.value);
+            const offsetY = parseFloat(offsetYInput.value);
+            const originX = canvas.width / 2 + offsetX;
+            const originY = canvas.height / 2 + offsetY;
+            const displayGridWidth = parseFloat(physicalWidthInput.value) * (image.clientWidth / image.naturalWidth);
+
+            const displayX = xDirection === 'x+' ? originX + x * displayGridWidth : originX - x * displayGridWidth;
+            const displayY = yDirection === 'y+' ? originY + y * displayGridWidth : originY - y * displayGridWidth;
+
+            const color = FIXTURE_COLORS[point.fixtureId];
+
+            let ifContainRareItem = false;
+            if (color) {
+                // 绘制点
+                ctx.fillStyle = color;
+                ctx.beginPath();
+                ctx.arc(displayX, displayY, 5, 0, Math.PI * 2);
+                ctx.fill();
+
+                const containsRareItem = doContainsRareItem(point.reward);
+                if (containsRareItem) {
+                    // 绘制红色边框
+                    ctx.strokeStyle = 'red';
+                    ctx.beginPath();
+                    ctx.arc(displayX, displayY, 5, 0, Math.PI * 2);
+                    ctx.stroke();
+                    ifContainRareItem = true;
+                } else {
+                    // 绘制黑色边框
+                    ctx.strokeStyle = 'black';
+                    ctx.beginPath();
+                    ctx.arc(displayX, displayY, 5, 0, Math.PI * 2);
+                    ctx.stroke();
+                }
+
+                // 显示奖励物品
+                displayReward(point.reward, displayX + displayGridWidth * 1.5, displayY + displayGridWidth / 1.2, ifContainRareItem);
+
+            } else {
+                console.warn(`找不到fixtureID的颜色: ${point.fixtureId}`);
+                ctx.fillStyle = 'black';
+                ctx.font = '12px Arial';
+                ctx.fillText('?', displayX - 3, displayY + 4);
+            }
+        }
+
+
+        function displayReward(reward, x, y, ifContainRareItem) {
+            const itemList = document.createElement('div');
+            itemList.className = 'item-list';
+
+            const container = document.querySelector('.container');
+            const containerWidth = container.offsetWidth;  // 获取容器的宽度
+            const screenWidth = window.innerWidth;  // 获取当前屏幕宽度
+
+            let xOffset = 0;
+            let yOffset = 0;
+
+            if (containerWidth >= 1920) {
+                const emptySpaceWidth = (screenWidth - 1920 - 80) / 2;  // 计算空白区域宽度（左右均分）
+                xOffset = emptySpaceWidth;
+                yOffset = -10;
+            }
+
+            if (reverseXY) {
+                itemList.style.left = `${x + xOffset}px`;
+                itemList.style.top = `${y - 10 + yOffset}px`; // Centered vertically
+            } else {
+                itemList.style.left = `${x + xOffset}px`;
+                itemList.style.top = `${y + yOffset}px`;
+            }
+
+            for (const category in reward) {
+                if (!reward.hasOwnProperty(category)) continue;
+                for (const itemId in reward[category]) {
+                    if (!reward[category].hasOwnProperty(itemId)) continue;
+
+                    const quantity = reward[category][itemId];
+                    const texture = ITEM_TEXTURES[category]?.[itemId] || 'missing.png';
+
+                    if (!ITEM_TEXTURES[category] || !ITEM_TEXTURES[category][itemId]) {
+                        console.warn(`找不到贴图的物品ID: ${category} - ${itemId}`);
+                    }
+
+                    const itemEntry = document.createElement('div');
+                    const itemImage = document.createElement('img');
+                    
+                    if (category == "mysekai_music_record") {
+                        itemImage.src = './icon/Texture2D/item_surplus_music_record.png';
+                    } else {
+                        itemImage.src = texture;
+                    }
+
+                    const quantityBadge = document.createElement('span');
+                    quantityBadge.className = 'quantity';
+                    quantityBadge.textContent = quantity;
+
+                    itemEntry.style.position = 'relative';
+                    itemEntry.appendChild(itemImage);
+                    itemEntry.appendChild(quantityBadge);
+                    if (reverseXY) {
+                        itemEntry.style.display = "inline-block"; // Horizontal layout
+                    }
+
+                    itemList.appendChild(itemEntry);  
+                }
+            }
+
+            if (ifContainRareItem || reward.hasOwnProperty("mysekai_music_record")) {
+                if (doContainsRareItem(reward, true)) {
+                    itemList.style.background = 'rgba(255, 0, 0, 0.5)';
+                } else {
+                    itemList.style.background = 'rgba(0, 0, 180, 0.5)';
+                }
+            }
+
+            document.body.appendChild(itemList);
+        }
+
+        function adjustItemListPositions(maxLapWidth, maxLapHeight) {
+            const itemLists = Array.from(document.querySelectorAll('.item-list'));
+
+            for (let i = 0; i < itemLists.length; i++) {
+                const rect1 = itemLists[i].getBoundingClientRect();
+
+                for (let j = i; j < itemLists.length; j++) {
+                    if (i === j) continue;
+
+                    const rect2 = itemLists[j].getBoundingClientRect();
+
+                    // 检查是否存在超出允许阈值的重叠
+                    const overlapWidth = Math.min(rect1.right, rect2.right) - Math.max(rect1.left, rect2.left);
+                    const overlapHeight = Math.min(rect1.bottom, rect2.bottom) - Math.max(rect1.top, rect2.top);
+
+                    if (overlapWidth > 0 && overlapHeight > 0 && (overlapWidth > maxLapWidth || overlapHeight > maxLapHeight)) {
+                        if (reverseXY) {
+                            const currentTop = parseFloat(itemLists[j].style.top || 0);
+                            itemLists[j].style.top = `${currentTop - overlapHeight / 1.25}px`;
+                        } else {
+                            const currentLeft = parseFloat(itemLists[j].style.left || 0);
+                            itemLists[j].style.left = `${currentLeft - overlapWidth / 1.25}px`;
+                        }
+                    }
+                }
+            }
+        }
+
+        function setDirection(newXDirection, newYDirection) {
+            xDirection = newXDirection;
+            yDirection = newYDirection;
+            parseAndMarkPoints();
+        }
+       
+        function clearItemLists() {
+            // 清除页面上所有的物品栏
+            document.querySelectorAll('.item-list').forEach(item => item.remove());
+        }
+
+        function clearGrid() {
+            // 清除画布网格
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            // 同时清除物品栏
+            clearItemLists();
+        }
+    </script>
+</body>
+</html>

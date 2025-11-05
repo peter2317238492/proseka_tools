@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Page
     x:Class="ProsekaToolsApp.Pages.Tab2Page"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -9,6 +9,16 @@
     mc:Ignorable="d">
 
     <Grid>
+        <TextBlock
+            FontSize="30"
+            FontWeight="SemiBold"
+            Margin="24"
+            Text="Suite工具" />
+        <TextBlock
+            FontSize="14"
+            FontWeight="Normal"
+            Margin="24,72,24,24"
+            Text="Under construction" />
 
     </Grid>
 </Page>

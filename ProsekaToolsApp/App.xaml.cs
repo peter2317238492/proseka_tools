@@ -1,4 +1,5 @@
-using Microsoft.UI.Xaml;
+﻿using Microsoft.UI.Xaml;
+using ProsekaToolsApp.Services;
 
 namespace ProsekaToolsApp
 {
@@ -11,10 +12,14 @@ namespace ProsekaToolsApp
 
         protected override void OnLaunched(LaunchActivatedEventArgs args)
         {
-            m_window = new MainWindow();
-            m_window.Activate();
+            MainWindow = new MainWindow();
+
+            // Apply saved theme before showing the window to avoid flash
+            ThemeService.ApplySavedTheme();
+
+            MainWindow.Activate();
         }
 
-        private Window m_window;
+        public static Window? MainWindow { get; private set; }
     }
 }
