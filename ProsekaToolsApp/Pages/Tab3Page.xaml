@@ -11,7 +11,7 @@
     <Grid>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*"/>
-            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="2*"/>
         </Grid.ColumnDefinitions>
 
         <!-- 左半边：解密 -->
@@ -44,9 +44,43 @@
             </StackPanel>
         </ScrollViewer>
 
-        <!-- 右半边预留 -->
+        <!-- 右半边：地图渲染 -->
         <Grid Grid.Column="1">
-            <TextBlock Margin="24" Opacity="0.5" Text="右侧预留"/>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <!-- 控件栏 -->
+            <StackPanel Orientation="Horizontal" Spacing="12" Padding="12">
+                <ComboBox x:Name="MapSelectCombo" Width="220" SelectionChanged="MapSelectCombo_SelectionChanged"/>
+                <CheckBox x:Name="ShowIconsCheckBox" IsChecked="True" Content="显示图标" Checked="ShowIconsCheckBox_Toggled" Unchecked="ShowIconsCheckBox_Toggled"/>
+                <Button Content="载入最新JSON" Click="LoadLatestJsonButton_Click"/>
+                <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                    <Button Content="+" Width="32" Height="32" Click="ZoomInButton_Click"/>
+                    <Button Content="-" Width="32" Height="32" Click="ZoomOutButton_Click"/>
+                    <Button Content="重置" Width="48" Height="32" Click="ResetZoomButton_Click"/>
+                </StackPanel>
+            </StackPanel>
+
+            <!-- 画布区域 -->
+            <Border Grid.Row="1" Margin="12" BorderBrush="LightGray" BorderThickness="1">
+                <ScrollViewer x:Name="MapScrollViewer"
+                              HorizontalScrollBarVisibility="Auto"
+                              VerticalScrollBarVisibility="Auto"
+                              ZoomMode="Enabled"
+                              MinZoomFactor="0.25"
+                              MaxZoomFactor="4">
+                    <Grid x:Name="MapZoomContainer"
+                          HorizontalAlignment="Left"
+                          VerticalAlignment="Top">
+                        <Grid HorizontalAlignment="Left" VerticalAlignment="Top">
+                            <Image x:Name="MapImage" Stretch="None" HorizontalAlignment="Left" VerticalAlignment="Top"/>
+                            <Canvas x:Name="MapCanvas" IsHitTestVisible="False"/>
+                        </Grid>
+                    </Grid>
+                </ScrollViewer>
+            </Border>
         </Grid>
 
     </Grid>
