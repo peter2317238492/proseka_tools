@@ -21,6 +21,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Text.RegularExpressions;
 using System.Diagnostics;
+using ProsekaToolsApp.Services;
 
 // To learn more about WinUI, the WinUI project structure,
 // and more about our project templates, see: http://aka.ms/winui-project-info.
@@ -68,7 +69,7 @@ namespace ProsekaToolsApp.Pages
 
 		// capture settings
 		private const int ServerPort = 8000;
-		private readonly string _outputRoot = Path.Combine(AppContext.BaseDirectory, "captures");
+		private readonly string _outputRoot = AppPaths.GetCapturesRoot();
 
 		// UI: capture logs
 		public ObservableCollection<string> CaptureLogs { get; } = new();

@@ -10,7 +10,7 @@
   <Identity
     Name="0c103af2-93e4-4775-8a6b-12929d38cb7f"
     Publisher="CN=heosdee"
-    Version="1.0.1.0" />
+    Version="1.0.2.0" />
 
   <Properties>
     <DisplayName>prosekatools</DisplayName>

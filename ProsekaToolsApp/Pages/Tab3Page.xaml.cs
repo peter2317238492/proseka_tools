@@ -21,6 +21,7 @@ using System.Text.Json;
 using Microsoft.UI;
 using Microsoft.UI.Xaml.Shapes;
 using IOPath = System.IO.Path;
+using ProsekaToolsApp.Services;
 
 namespace ProsekaToolsApp.Pages;
 
@@ -101,8 +102,7 @@ public sealed partial class Tab3Page : Page
 	{
 		try
 		{
-			var root = AppContext.BaseDirectory;
-			var dir = IOPath.Combine(root, "captures", "mysekai");
+			var dir = AppPaths.CapturesMysekaiDir;
 			if (!Directory.Exists(dir)) return null;
 			var latest = Directory.GetFiles(dir)
 				.OrderByDescending(f => new FileInfo(f).LastWriteTimeUtc)
@@ -135,7 +135,7 @@ public sealed partial class Tab3Page : Page
 			var regionCb = GetRegionCombo();
 			var region = (regionCb?.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? "jp";
 
-			var outputDir = IOPath.Combine(AppContext.BaseDirectory, "output", "mysekai");
+			var outputDir = AppPaths.OutputMysekaiDir;
 			Directory.CreateDirectory(outputDir);
 			var outName = IOPath.GetFileNameWithoutExtension(inputFile) + ".json";
 			var outputPath = IOPath.Combine(outputDir, outName);
@@ -217,7 +217,7 @@ public sealed partial class Tab3Page : Page
 	{
 		try
 		{
-			var dir = IOPath.Combine(AppContext.BaseDirectory, "output", "mysekai");
+			var dir = AppPaths.OutputMysekaiDir;
 			if (!Directory.Exists(dir)) return null;
 			var latest = Directory.GetFiles(dir, "*.json")
 				.OrderByDescending(f => new FileInfo(f).LastWriteTimeUtc)

@@ -28,7 +28,7 @@
                     <ComboBoxItem Content="cn"/>
                 </ComboBox>
 
-                <CheckBox x:Name="UseLatestCheckBox" IsChecked="True" Content="使用最新的 sekai 数据包 (captures/mysekai)"/>
+                <CheckBox x:Name="UseLatestCheckBox" IsChecked="True" Content="使用最新的 sekai 数据包 (%APPDATA%/ProsekaTools/captures/mysekai)"/>
 
                 <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                     <Button x:Name="ChooseFileButton" Content="选择文件" Click="ChooseFileButton_Click"/>
