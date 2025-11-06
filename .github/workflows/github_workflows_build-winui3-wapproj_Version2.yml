@@ -1,0 +1,88 @@
+name: Build WinUI3 MSIX (wapproj, sideload)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    tags: [ "v*" ]
+
+jobs:
+  build:
+    runs-on: windows-2022
+
+    env:
+      CONFIGURATION: Release
+      PLATFORM: x64
+      # 如果你的打包项目不在 prosekatoolspackaging 下，修改下面这个目录
+      WAPPROJ_DIR: prosekatoolspackaging
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          lfs: true
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Setup NuGet
+        uses: NuGet/setup-nuget@v2
+
+      - name: Locate wapproj
+        shell: pwsh
+        run: |
+          $w = Get-ChildItem -Path "$env:WAPPROJ_DIR" -Filter *.wapproj -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+          if(-not $w){ throw "No .wapproj found under $env:WAPPROJ_DIR. Please update WAPPROJ_DIR or set WAPPROJ_PATH directly." }
+          "WAPPROJ_PATH=$($w.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append
+          Write-Host "Found wapproj: $($w.FullName)"
+
+      - name: Restore
+        run: |
+          nuget restore
+          msbuild "%WAPPROJ_PATH%" -t:Restore -p:Configuration=%CONFIGURATION% -p:Platform=%PLATFORM%
+
+      - name: Prepare signing cert (optional but recommended)
+        if: ${{ secrets.WINDOWS_PFX != '' }}
+        shell: pwsh
+        run: |
+          # 将 Base64 的 PFX Secret 解码为 cert.pfx
+          $b64 = "${{ secrets.WINDOWS_PFX }}"
+          [IO.File]::WriteAllText("cert.b64", $b64)
+          certutil -decode cert.b64 cert.pfx | Out-Null
+          if(-not (Test-Path cert.pfx)){ throw "Failed to decode PFX from WINDOWS_PFX secret." }
+          "PFX_PATH=$(Resolve-Path cert.pfx)" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Build and Package (Sideload)
+        shell: cmd
+        run: >
+          msbuild "%WAPPROJ_PATH%"
+          -t:Build
+          -p:Configuration=%CONFIGURATION%
+          -p:Platform=%PLATFORM%
+          -p:GenerateAppxPackageOnBuild=true
+          -p:AppxBundle=Always
+          -p:AppxBundlePlatforms=%PLATFORM%
+          -p:UapAppxPackageBuildMode=SideloadOnly
+          %(PFX)s
+        env:
+          PFX: ${{ secrets.WINDOWS_PFX != '' && format('-p:PackageCertificateKeyFile="{0}" -p:PackageCertificatePassword="{1}"', env.PFX_PATH, secrets.WINDOWS_PFX_PASSWORD) || '' }}
+
+      - name: Find packages
+        id: findpkg
+        shell: pwsh
+        run: |
+          $pkgs = Get-ChildItem -Recurse -Include *.msix,*.msixbundle,*.msixupload | Select-Object -Expand FullName
+          if(-not $pkgs){ throw "No packages produced." }
+          $list = $pkgs -join "`n"
+          "FILES<<EOF`n$list`nEOF" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          Write-Host "Packages:`n$list"
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-packages
+          path: |
+            **/*.msix
+            **/*.msixbundle
+            **/*.msixupload
