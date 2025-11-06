@@ -22,6 +22,8 @@ using Microsoft.UI;
 using Microsoft.UI.Xaml.Shapes;
 using IOPath = System.IO.Path;
 using ProsekaToolsApp.Services;
+using Windows.Foundation.Metadata;
+using Windows.ApplicationModel;
 
 namespace ProsekaToolsApp.Pages;
 
@@ -148,6 +150,31 @@ public sealed partial class Tab3Page : Page
 			}
 
 			var args = $"apidecrypt \"{inputFile}\" \"{outputPath}\" --region {region}";
+
+			// Prefer packaged full trust launcher when available (Store/S mode friendly)
+			bool launchedViaFullTrust = await TryLaunchFullTrustAsync();
+			if (launchedViaFullTrust)
+			{
+				// 不能动态传参时，提醒用户或等待外部工具按约定路径输出
+				var okOut = await WaitForFileAsync(outputPath, TimeSpan.FromSeconds(40));
+				if (okOut && File.Exists(outputPath))
+				{
+					SetStatus($"解密完成: {outputPath}");
+					await LoadJsonAndPopulateMapsAsync(outputPath);
+				}
+				else
+				{
+					SetStatus("已通过 FullTrust 启动辅助进程。若未生成文件，请确认辅助程序支持在无命令行参数时的工作方式。", isError: true);
+				}
+				return;
+			}
+
+#if DISABLE_EXTERNAL_PROCESS
+			// External process launching is disabled and full-trust path wasn't available
+			SetStatus("当前构建禁用了外部进程启动。请手动将 JSON 放入输出目录后使用‘载入最新JSON’。", isError: true);
+			return;
+#else
+			// Fallback for unpackaged/dev runs
 			var ok = await RunProcessAsync(exePath, args);
 			if (ok && File.Exists(outputPath))
 			{
@@ -159,6 +186,7 @@ public sealed partial class Tab3Page : Page
 			{
 				SetStatus("解密失败，请检查输入文件和 region。", isError: true);
 			}
+#endif
 		}
 		finally
 		{
@@ -167,6 +195,40 @@ public sealed partial class Tab3Page : Page
 		}
 	}
 
+	private async Task<bool> TryLaunchFullTrustAsync()
+	{
+		try
+		{
+			if (ApiInformation.IsMethodPresent("Windows.ApplicationModel.FullTrustProcessLauncher", nameof(FullTrustProcessLauncher.LaunchFullTrustProcessForCurrentAppAsync)))
+			{
+				await FullTrustProcessLauncher.LaunchFullTrustProcessForCurrentAppAsync();
+				return true;
+			}
+			return false;
+		}
+		catch (Exception ex)
+		{
+			SetStatus(ex.Message, isError: true);
+			return false;
+		}
+	}
+
+	private static async Task<bool> WaitForFileAsync(string path, TimeSpan timeout)
+	{
+		var start = DateTime.UtcNow;
+		while (DateTime.UtcNow - start < timeout)
+		{
+			try
+			{
+				if (File.Exists(path)) return true;
+			}
+			catch { }
+			await Task.Delay(300);
+		}
+		return false;
+	}
+
+#if !DISABLE_EXTERNAL_PROCESS
 	private async Task<bool> RunProcessAsync(string exePath, string arguments)
 	{
 		try
@@ -200,6 +262,13 @@ public sealed partial class Tab3Page : Page
 			return false;
 		}
 	}
+#else
+	private Task<bool> RunProcessAsync(string exePath, string arguments)
+	{
+		// Stub when external process launching is disabled
+		return Task.FromResult(false);
+	}
+#endif
 
 	// Right-side: load latest JSON and draw
 	private async void LoadLatestJsonButton_Click(object sender, RoutedEventArgs e)

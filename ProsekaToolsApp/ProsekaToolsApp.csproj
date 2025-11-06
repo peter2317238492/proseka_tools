@@ -16,7 +16,7 @@
 
     <!-- WinAppSDK + .NET runtime settings for MSIX packaging -->
     <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
-    <SelfContained>true</SelfContained>
+    <SelfContained>false</SelfContained>
     <PublishTrimmed>false</PublishTrimmed>
 
     <!-- IMPORTANT: Single-file publish is incompatible with WinUI 3/MSIX (MRT Core/resources).
@@ -28,7 +28,16 @@
 
     <RootNamespace>ProsekaToolsApp</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+
+    <!-- Disable raw Process.Start usage in app code; use FullTrustProcessLauncher for packaged runs. -->
+    <DisableExternalProcess Condition="'$(DisableExternalProcess)'==''">true</DisableExternalProcess>
   </PropertyGroup>
+
+  <!-- Add a conditional compilation symbol when external processes are disabled -->
+  <PropertyGroup Condition="'$(DisableExternalProcess)'=='true'">
+    <DefineConstants>$(DefineConstants);DISABLE_EXTERNAL_PROCESS</DefineConstants>
+  </PropertyGroup>
+
   <ItemGroup>
     <None Remove="Pages\GrabDataPage.xaml" />
     <None Remove="Pages\SettingsPage.xaml" />
@@ -86,7 +95,7 @@
     </Page>
   </ItemGroup>
 
-  <!-- Include sssekai.exe in build and publish outputs under Services/ -->
+  <!-- Always include packaged helper in output; FullTrustProcessLauncher will start it when packaged -->
   <ItemGroup>
     <None Include="Services\sssekai.exe">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>

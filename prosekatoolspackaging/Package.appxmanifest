@@ -4,16 +4,16 @@
   xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
   xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
   xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
-  xmlns:uap18="http://schemas.microsoft.com/appx/manifest/uap/windows10/18"
-  IgnorableNamespaces="uap rescap uap18">
+  xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10"
+  IgnorableNamespaces="uap rescap desktop">
 
   <Identity
-    Name="0c103af2-93e4-4775-8a6b-12929d38cb7f"
-    Publisher="CN=heosdee"
-    Version="1.0.2.0" />
+    Name="heosdee.prsktoolbox"
+    Publisher="CN=6D473403-766E-4132-86CD-E6D1D99DAE8E"
+    Version="1.0.0.0" />
 
   <Properties>
-    <DisplayName>prosekatools</DisplayName>
+    <DisplayName>prsktoolbox</DisplayName>
     <PublisherDisplayName>heosdee</PublisherDisplayName>
     <Logo>Images\StoreLogo.png</Logo>
   </Properties>
@@ -28,9 +28,10 @@
   </Resources>
 
   <Applications>
+    <!-- Packaged Win32 (Desktop Bridge) entry point must be FullTrustApplication -->
     <Application Id="App"
       Executable="$targetnametoken$.exe"
-      EntryPoint="$targetentrypoint$" uap18:TrustLevel="appContainer" uap18:RuntimeBehavior="windowsApp">
+      EntryPoint="Windows.FullTrustApplication">
       <uap:VisualElements
         DisplayName="prosekatoolspackaging"
         Description="prosekatoolspackaging"
@@ -40,6 +41,16 @@
         <uap:DefaultTile Wide310x150Logo="Images\Wide310x150Logo.png" />
         <uap:SplashScreen Image="Images\SplashScreen.png" />
       </uap:VisualElements>
+
+      <!-- Declare packaged full-trust helper process (Services/sssekai.exe) -->
+      <Extensions>
+        <desktop:Extension Category="windows.fullTrustProcess" Executable="Services\sssekai.exe">
+          <desktop:FullTrustProcess>
+            <desktop:ParameterGroup GroupId="apidecrypt" Parameters="" />
+          </desktop:FullTrustProcess>
+        </desktop:Extension>
+      </Extensions>
+
     </Application>
   </Applications>
 

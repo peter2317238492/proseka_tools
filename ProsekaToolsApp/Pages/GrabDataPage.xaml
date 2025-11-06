@@ -19,6 +19,8 @@
             FontWeight="Normal"
             Text="{Binding LocalIp}" />
         <Button Margin="0,12,0,0" Content="生成MitM配置文件" />
+        <!-- 新增：放行 8000 端口的防火墙规则按钮 -->
+        <Button x:Name="FirewallButton" Margin="0,8,0,0" Click="AddFirewallRule_Click" Content="放行防火墙端口 8000" />
         <!--  Capture Server 开关与状态  -->
         <Border
             Height="1"

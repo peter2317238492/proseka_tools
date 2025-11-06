@@ -86,6 +86,18 @@ namespace ProsekaToolsApp.Pages
 			_timer.Start();
 
 			this.Unloaded += GrabDataPage_Unloaded;
+
+#if DISABLE_EXTERNAL_PROCESS
+			// Avoid any UWP/Store check issues: disable firewall helper UI when ext. process is disabled
+			Loaded += (s, e) =>
+			{
+				if (FindName("FirewallButton") is Button fb)
+				{
+					fb.IsEnabled = false;
+					Microsoft.UI.Xaml.Controls.ToolTipService.SetToolTip(fb, "此构建禁用了外部进程启动");
+				}
+			};
+#endif
 		}
 
 		private void UpdateLocalIp()
@@ -378,7 +390,12 @@ namespace ProsekaToolsApp.Pages
 			var ts = DateTime.Now.ToString("yyyyMMdd_HHmmss");
 			var uidMatch = Regex.Match(originalUrl ?? string.Empty, @"/user/(\d+)", RegexOptions.IgnoreCase);
 			var userStr = uidMatch.Success ? $"_user{uidMatch.Groups[1].Value}" : string.Empty;
+#if DISABLE_EXTERNAL_PROCESS
+			// Avoid using Process APIs when external processes are disabled
+			var pid = Environment.ProcessId;
+#else
 			var pid = Process.GetCurrentProcess().Id;
+#endif
 			return $"{apiType}{userStr}_{ts}_{pid}.bin";
 		}
 
@@ -429,6 +446,54 @@ namespace ProsekaToolsApp.Pages
 		private async void GrabDataPage_Unloaded(object sender, RoutedEventArgs e)
 		{
 			await StopServerAsync();
+		}
+
+		private async void AddFirewallRule_Click(object sender, RoutedEventArgs e)
+		{
+#if DISABLE_EXTERNAL_PROCESS
+			AppendLog("此构建禁用了外部进程启动，跳过添加防火墙规则。");
+			return;
+#else
+			AppendLog("请求添加防火墙规则 (TCP 8000)...");
+			try
+			{
+				var psi = new ProcessStartInfo
+				{
+					FileName = "netsh",
+					Arguments = "advfirewall firewall add rule name=\"Allow8000\" dir=in action=allow protocol=TCP localport=8000",
+					UseShellExecute = true,
+					Verb = "runas",
+					CreateNoWindow = true,
+					WindowStyle = ProcessWindowStyle.Hidden
+				};
+
+				var proc = Process.Start(psi);
+				if (proc == null)
+				{
+					AppendLog("无法启动 netsh 进程。");
+					return;
+				}
+
+				await Task.Run(() => proc.WaitForExit());
+				if (proc.ExitCode == 0)
+				{
+					AppendLog("已添加防火墙规则：Allow8000 (TCP 8000)。");
+				}
+				else
+				{
+					AppendLog($"添加防火墙规则可能失败，ExitCode={proc.ExitCode}。");
+				}
+			}
+			catch (System.ComponentModel.Win32Exception ex) when (ex.NativeErrorCode == 1223)
+			{
+				// 用户取消了 UAC 提示
+				AppendLog("已取消提升权限，未添加规则。");
+			}
+			catch (Exception ex)
+			{
+				AppendLog($"添加防火墙规则异常: {ex.Message}");
+			}
+#endif
 		}
 	}
 }
