@@ -8,17 +8,36 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
 
-    <Grid>
-        <TextBlock
-            Margin="24"
-            FontSize="30"
-            FontWeight="SemiBold"
-            Text="Suite工具" />
-        <TextBlock
-            Margin="24,72,24,24"
-            FontSize="14"
-            FontWeight="Normal"
-            Text="Under construction" />
+    <Grid Padding="24" RowSpacing="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
 
+        <TextBlock FontSize="30" FontWeight="SemiBold" Text="Suite上传" />
+        <!--POST 到 http://101.34.19.31:5225/uploadTwSuite（将携带 Origin/Referer: http://go.mikuware.top-->
+        <TextBlock Grid.Row="1" FontSize="14" TextWrapping="Wrap" Text="拖拽或选择 suite 二进制）"/>
+
+        <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="12">
+            <Button x:Name="ChooseFileButton" Content="选择文件" Click="ChooseFileButton_Click"/>
+            <CheckBox x:Name="UseLatestCheckBox" Content="使用最新抓到的 suite 文件" VerticalAlignment="Center"/>
+            <Button x:Name="UploadButton" Content="上传" Click="UploadButton_Click"/>
+        </StackPanel>
+
+        <Border Grid.Row="3" x:Name="DropBorder" BorderBrush="Gray" BorderThickness="2" CornerRadius="8" Background="#11FFFFFF"
+                AllowDrop="True" DragOver="DropBorder_DragOver" Drop="DropBorder_Drop" Padding="20">
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8">
+                <TextBlock x:Name="SelectedFileText" Text="尚未选择文件" FontSize="16"/>
+                <TextBlock Text="支持拖拽单个 .bin 文件到此" FontSize="12" Foreground="Gray"/>
+            </StackPanel>
+        </Border>
+
+        <StackPanel Grid.Row="4" Orientation="Vertical" Spacing="6">
+            <ProgressBar x:Name="UploadProgress" Height="8" Minimum="0" Maximum="100" Visibility="Collapsed"/>
+            <TextBlock x:Name="StatusText" FontSize="13" TextWrapping="Wrap"/>
+        </StackPanel>
     </Grid>
 </Page>

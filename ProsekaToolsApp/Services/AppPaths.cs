@@ -19,6 +19,8 @@ namespace ProsekaToolsApp.Services
 
         public static string CapturesMysekaiDir => GetCapturesCategoryDir("mysekai");
 
+        public static string CapturesSuiteDir => GetCapturesCategoryDir("suite");
+
         public static void EnsureDir(string path)
         {
             if (!Directory.Exists(path))
