@@ -30,7 +30,7 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
 
     <!-- Disable raw Process.Start usage in app code; use FullTrustProcessLauncher for packaged runs. -->
-    <DisableExternalProcess Condition="'$(DisableExternalProcess)'==''">true</DisableExternalProcess>
+    <DisableExternalProcess Condition="'$(DisableExternalProcess)'==''">false</DisableExternalProcess>
   </PropertyGroup>
 
   <!-- Add a conditional compilation symbol when external processes are disabled -->

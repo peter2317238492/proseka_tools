@@ -1,5 +1,3 @@
-name: Build WinUI3 MSIX (wapproj, sideload)
-
 on:
   workflow_dispatch:
   push:
@@ -10,10 +8,13 @@ jobs:
   build:
     runs-on: windows-2022
 
+    # ✅ 声明需要访问 secrets
+    permissions:
+      contents: read
+
     env:
       CONFIGURATION: Release
       PLATFORM: x64
-      # 如果你的打包项目不在 prosekatoolspackaging 下，修改下面这个目录
       WAPPROJ_DIR: prosekatoolspackaging
 
     steps:
@@ -33,17 +34,24 @@ jobs:
         shell: pwsh
         run: |
           $w = Get-ChildItem -Path "$env:WAPPROJ_DIR" -Filter *.wapproj -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
-          if(-not $w){ throw "No .wapproj found under $env:WAPPROJ_DIR. Please update WAPPROJ_DIR or set WAPPROJ_PATH directly." }
+          if(-not $w){ throw "No .wapproj found under $env:WAPPROJ_DIR." }
           "WAPPROJ_PATH=$($w.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append
-          Write-Host "Found wapproj: $($w.FullName)"
 
       - name: Restore
         run: |
           nuget restore
           msbuild "%WAPPROJ_PATH%" -t:Restore -p:Configuration=%CONFIGURATION% -p:Platform=%PLATFORM%
 
-      - name: Build and Package (Sideload)
-        if: ${{ secrets.WINDOWS_PFX }}
+      # ✅ 构建（签名）
+      - name: Build and Package (Signed)
+        if: ${{ success() && secrets.WINDOWS_PFX }}
+        shell: pwsh
+        run: |
+          [IO.File]::WriteAllText("cert.b64", "${{ secrets.WINDOWS_PFX }}")
+          certutil -decode cert.b64 cert.pfx | Out-Null
+          $pfx = Resolve-Path cert.pfx
+          echo "PFX_PATH=$pfx" >> $env:GITHUB_ENV
+        # build
         shell: cmd
         run: >
           msbuild "%WAPPROJ_PATH%"
@@ -57,8 +65,9 @@ jobs:
           -p:PackageCertificateKeyFile="%PFX_PATH%"
           -p:PackageCertificatePassword="${{ secrets.WINDOWS_PFX_PASSWORD }}"
 
-      - name: Build and Package (No Signing)
-        if: ${{ !secrets.WINDOWS_PFX }}
+      # ❎ 无证书构建
+      - name: Build and Package (Unsigned)
+        if: ${{ success() && !secrets.WINDOWS_PFX }}
         shell: cmd
         run: >
           msbuild "%WAPPROJ_PATH%"
@@ -70,16 +79,13 @@ jobs:
           -p:AppxBundlePlatforms=%PLATFORM%
           -p:UapAppxPackageBuildMode=SideloadOnly
 
-
       - name: Find packages
         id: findpkg
         shell: pwsh
         run: |
           $pkgs = Get-ChildItem -Recurse -Include *.msix,*.msixbundle,*.msixupload | Select-Object -Expand FullName
           if(-not $pkgs){ throw "No packages produced." }
-          $list = $pkgs -join "`n"
-          "FILES<<EOF`n$list`nEOF" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-          Write-Host "Packages:`n$list"
+          $pkgs -join "`n"
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
