@@ -6,9 +6,9 @@ A simple WinUI3 application with four sidebar navigation tabs.
 
 - **ProsekaToolsApp** - Main WinUI3 application
   - Four sidebar tabs using NavigationView:
-    - Tab 1 - Home
-    - Tab 2 - Documents
-    - Tab 3 - Library
+    - Tab 1 - data grabbing
+    - Tab 2 - suite
+    - Tab 3 - MySekai
     - Tab 4 - Settings
 
 ## Requirements
