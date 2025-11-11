@@ -42,18 +42,8 @@ jobs:
           nuget restore
           msbuild "%WAPPROJ_PATH%" -t:Restore -p:Configuration=%CONFIGURATION% -p:Platform=%PLATFORM%
 
-      - name: Prepare signing cert (optional but recommended)
-        if: ${{ secrets.WINDOWS_PFX != '' }}
-        shell: pwsh
-        run: |
-          # 将 Base64 的 PFX Secret 解码为 cert.pfx
-          $b64 = "${{ secrets.WINDOWS_PFX }}"
-          [IO.File]::WriteAllText("cert.b64", $b64)
-          certutil -decode cert.b64 cert.pfx | Out-Null
-          if(-not (Test-Path cert.pfx)){ throw "Failed to decode PFX from WINDOWS_PFX secret." }
-          "PFX_PATH=$(Resolve-Path cert.pfx)" | Out-File -FilePath $env:GITHUB_ENV -Append
-
       - name: Build and Package (Sideload)
+        if: ${{ secrets.WINDOWS_PFX }}
         shell: cmd
         run: >
           msbuild "%WAPPROJ_PATH%"
@@ -64,9 +54,22 @@ jobs:
           -p:AppxBundle=Always
           -p:AppxBundlePlatforms=%PLATFORM%
           -p:UapAppxPackageBuildMode=SideloadOnly
-          %(PFX)s
-        env:
-          PFX: ${{ secrets.WINDOWS_PFX != '' && format('-p:PackageCertificateKeyFile="{0}" -p:PackageCertificatePassword="{1}"', env.PFX_PATH, secrets.WINDOWS_PFX_PASSWORD) || '' }}
+          -p:PackageCertificateKeyFile="%PFX_PATH%"
+          -p:PackageCertificatePassword="${{ secrets.WINDOWS_PFX_PASSWORD }}"
+
+      - name: Build and Package (No Signing)
+        if: ${{ !secrets.WINDOWS_PFX }}
+        shell: cmd
+        run: >
+          msbuild "%WAPPROJ_PATH%"
+          -t:Build
+          -p:Configuration=%CONFIGURATION%
+          -p:Platform=%PLATFORM%
+          -p:GenerateAppxPackageOnBuild=true
+          -p:AppxBundle=Always
+          -p:AppxBundlePlatforms=%PLATFORM%
+          -p:UapAppxPackageBuildMode=SideloadOnly
+
 
       - name: Find packages
         id: findpkg
