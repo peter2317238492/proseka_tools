@@ -24,6 +24,9 @@ using IOPath = System.IO.Path;
 using ProsekaToolsApp.Services;
 using Windows.Foundation.Metadata;
 using Windows.ApplicationModel;
+using System.Net.Http;
+using Microsoft.UI.Xaml.Media.Imaging;
+using Windows.Storage.Streams;
 
 namespace ProsekaToolsApp.Pages;
 
@@ -35,6 +38,26 @@ public sealed partial class Tab3Page : Page
 	private Dictionary<int, MapScene> _scenes = MapScene.CreateDefaults();
 	private Dictionary<int, MapData> _maps = new();
 	private int _currentSiteId = 1;
+
+	// music record collection for left list
+	private readonly List<MusicRecordEntry> _musicRecords = new();
+	
+	// Configured HttpClient with proper headers
+	private static readonly HttpClient _http = new HttpClient
+	{
+		Timeout = TimeSpan.FromSeconds(30)
+	};
+
+	static Tab3Page()
+	{
+		// Add browser-like headers to avoid being blocked
+		_http.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
+		_http.DefaultRequestHeaders.Add("Accept", "image/webp,image/apng,image/*,*/*;q=0.8");
+		_http.DefaultRequestHeaders.Add("Accept-Encoding", "gzip, deflate, br");
+		_http.DefaultRequestHeaders.Add("Accept-Language", "en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7");
+		_http.DefaultRequestHeaders.Add("Cache-Control", "no-cache");
+		_http.DefaultRequestHeaders.Add("Pragma", "no-cache");
+	}
 
 	public Tab3Page()
 	{
@@ -54,18 +77,18 @@ public sealed partial class Tab3Page : Page
 		combo.SelectedIndex = 0;
 	}
 
-	// XAML element getters (avoid compile-time name binding issues)
+	// XAML element getters
 	private CheckBox? GetUseLatestCheckBox() => FindName("UseLatestCheckBox") as CheckBox;
 	private TextBox? GetSelectedFileTextBox() => FindName("SelectedFileTextBox") as TextBox;
 	private ProgressRing? GetWorkingRing() => FindName("WorkingRing") as ProgressRing;
 	private TextBlock? GetStatusTextBlock() => FindName("StatusText") as TextBlock;
 	private ComboBox? GetRegionCombo() => FindName("RegionCombo") as ComboBox;
-
 	private ComboBox? GetMapSelectCombo() => FindName("MapSelectCombo") as ComboBox;
 	private Canvas? GetMapCanvas() => FindName("MapCanvas") as Canvas;
 	private Image? GetMapImage() => FindName("MapImage") as Image;
 	private ScrollViewer? GetMapScrollViewer() => FindName("MapScrollViewer") as ScrollViewer;
 	private CheckBox? GetShowIconsCheckBox() => FindName("ShowIconsCheckBox") as CheckBox;
+	private ListView? GetMusicRecordsList() => FindName("MusicRecordsList") as ListView;
 
 	private async void ChooseFileButton_Click(object sender, RoutedEventArgs e)
 	{
@@ -309,7 +332,12 @@ public sealed partial class Tab3Page : Page
 				return;
 			}
 
+			// Ensure music master is loaded for records info/jacket
+			await MusicMaster.EnsureLoadedAsync(_http);
+
 			var maps = new Dictionary<int, MapData>();
+			_musicRecords.Clear();
+
 			foreach (var mp in mapsArray.EnumerateArray())
 			{
 				var siteId = mp.GetProperty("mysekaiSiteId").GetInt32();
@@ -343,7 +371,7 @@ public sealed partial class Tab3Page : Page
 						var px = dr.GetProperty("positionX").GetDouble();
 						var pz = dr.GetProperty("positionZ").GetDouble();
 						var resourceType = dr.GetProperty("resourceType").GetString()!;
-						var resourceId = dr.GetProperty("resourceId").GetInt32().ToString();
+						var resourceId = dr.GetProperty("resourceId").GetInt32();
 						var qty = dr.GetProperty("quantity").GetInt32();
 
 						var pt = mapDetails.FirstOrDefault(d => Math.Abs(d.X - px) < 1e-6 && Math.Abs(d.Y - pz) < 1e-6);
@@ -354,7 +382,31 @@ public sealed partial class Tab3Page : Page
 								bag = new Dictionary<string, int>();
 								pt.Rewards[resourceType] = bag;
 							}
-							bag[resourceId] = bag.TryGetValue(resourceId, out var old) ? old + qty : qty;
+							bag[resourceId.ToString()] = bag.TryGetValue(resourceId.ToString(), out var old) ? old + qty : qty;
+
+							if (resourceType == "mysekai_music_record")
+							{
+								// Use music master to resolve title/creator and jacket path
+								var entry = new MusicRecordEntry();
+								int viewId = resourceId + 30; // normalize id for musics.json
+								if (MusicMaster.TryGet(viewId, out var mm))
+								{
+									entry.Info = string.IsNullOrWhiteSpace(mm.Creator)
+										? mm.Title
+										: $"{mm.Title} · {mm.Creator}";
+									entry.JacketUrl = MusicMaster.BuildJacketUrl(mm.AssetbundleName);
+									entry.MetaUrl = $"https://sekai.best/music/{viewId}";
+								}
+								else
+								{
+									// Fallback to old behavior if not found
+									entry.Info = $"ID: {resourceId} (ViewID: {viewId})";
+									entry.MetaUrl = $"https://sekai.best/music/{viewId}";
+									entry.JacketUrl = $"https://storage.sekai.best/sekai-cn-assets/music/jacket/jacket_s_{viewId:D3}/jacket_s_{viewId:D3}.webp";
+								}
+								_ = entry.InitializeJacketImageAsync(_http);
+								_musicRecords.Add(entry);
+							}
 						}
 					}
 				}
@@ -367,7 +419,13 @@ public sealed partial class Tab3Page : Page
 			}
 			_maps = maps;
 
-			// Refresh combo items and draw current
+			var list = GetMusicRecordsList();
+			if (list != null)
+			{
+				list.ItemsSource = null;
+				list.ItemsSource = _musicRecords;
+			}
+
 			var combo = GetMapSelectCombo();
 			if (combo != null)
 			{
@@ -482,6 +540,9 @@ public sealed partial class Tab3Page : Page
 
 		bool showIcons = GetShowIconsCheckBox()?.IsChecked == true;
 
+		// Ensure music master available for overlay too
+		await MusicMaster.EnsureLoadedAsync(_http);
+
 		foreach (var p in map.Points)
 		{
 			double x = p.X, y = p.Y;
@@ -507,21 +568,78 @@ public sealed partial class Tab3Page : Page
 
 			if (showIcons && p.Rewards.Count > 0)
 			{
-				int idx = 0;
+			 int idx = 0;
 				foreach (var kv in p.Rewards)
 				{
 					foreach (var item in kv.Value)
 					{
+						// Special handling for music record: resolve via music master
+						if (string.Equals(kv.Key, "mysekai_music_record", StringComparison.Ordinal))
+						{
+							var imgIcon = new Image { Width = 24, Height = 24 };
+
+							if (int.TryParse(item.Key, out var rid))
+							{
+								string? jacketUrl = null;
+								int viewId = rid + 30; // normalize id for musics.json
+								if (MusicMaster.TryGet(viewId, out var mm))
+								{
+									jacketUrl = MusicMaster.BuildJacketUrl(mm.AssetbundleName);
+								}
+								else
+								{
+									// fallback to previous computation if missing
+									jacketUrl = $"https://storage.sekai.best/sekai-cn-assets/music/jacket/jacket_s_{viewId:D3}/jacket_s_{viewId:D3}.webp";
+								}
+
+								Debug.WriteLine($"[MusicRecord] Try load rid={rid} url={jacketUrl}");
+								RoutedEventHandler? opened = null;
+								ExceptionRoutedEventHandler? failed = null;
+								opened = (s, e) =>
+								{
+									Debug.WriteLine($"[MusicRecord] Success url={jacketUrl}");
+									imgIcon.ImageOpened -= opened;
+									imgIcon.ImageFailed -= failed;
+								};
+								failed = (s, e) =>
+								{
+									Debug.WriteLine($"[MusicRecord] Failed url={jacketUrl} error={e.ErrorMessage}. No fallback, online only.");
+									imgIcon.ImageOpened -= opened;
+									imgIcon.ImageFailed -= failed;
+								};
+								imgIcon.ImageOpened += opened;
+								imgIcon.ImageFailed += failed;
+								imgIcon.Source = new Microsoft.UI.Xaml.Media.Imaging.BitmapImage(new Uri(jacketUrl));
+							}
+
+							Canvas.SetLeft(imgIcon, displayX + idx * 28);
+							Canvas.SetTop(imgIcon, displayY - 12);
+							canvas.Children.Add(imgIcon);
+
+							if (rare)
+							{
+								// Draw a border rectangle for rare items
+								var rect = new Rectangle { Width = 24 + 6, Height = 24 + 6, StrokeThickness = 2 };
+								rect.Stroke = new SolidColorBrush(superRare ? Colors.Red : Colors.Blue);
+								rect.Fill = new SolidColorBrush(Colors.Transparent);
+								Canvas.SetLeft(rect, displayX + idx * 28 - 3);
+								Canvas.SetTop(rect, displayY - 15);
+								canvas.Children.Add(rect);
+							}
+
+							idx++;
+							continue;
+						}
+
 						var iconRel = IconResolver.GetIconRelativePath(kv.Key, item.Key);
 						if (iconRel == null) continue;
 						var iconPath = IOPath.Combine(AppContext.BaseDirectory, "assets", "sekai_xray", iconRel);
 						if (!File.Exists(iconPath)) continue;
 						var bmpIcon = new Microsoft.UI.Xaml.Media.Imaging.BitmapImage(new Uri(iconPath));
-						var imgIcon = new Image { Source = bmpIcon, Width = 24, Height = 24 };
-						Canvas.SetLeft(imgIcon, displayX + idx * 28);
-						Canvas.SetTop(imgIcon, displayY - 12);
-						canvas.Children.Add(imgIcon);
-						// draw a colored rectangle behind icon to emphasize rarity
+						var imgIconDefault = new Image { Source = bmpIcon, Width = 24, Height = 24 };
+						Canvas.SetLeft(imgIconDefault, displayX + idx * 28);
+						Canvas.SetTop(imgIconDefault, displayY - 12);
+						canvas.Children.Add(imgIconDefault);
 						if (rare)
 						{
 							var rect = new Rectangle { Width = 24 + 6, Height = 24 + 6, StrokeThickness = 2 };
@@ -594,6 +712,165 @@ public sealed partial class Tab3Page : Page
 	}
 }
 
+internal class MusicRecordEntry : System.ComponentModel.INotifyPropertyChanged
+{
+	public string Info { get; set; } = string.Empty;
+	public string MetaUrl { get; set; } = string.Empty;
+	public string JacketUrl { get; set; } = string.Empty;
+	public Uri MetaUri => Uri.TryCreate(MetaUrl, UriKind.Absolute, out var u) ? u : new Uri("https://sekai.best/");
+	
+	public Microsoft.UI.Xaml.Media.Imaging.SoftwareBitmapSource JacketImage { get; set; } = new Microsoft.UI.Xaml.Media.Imaging.SoftwareBitmapSource();
+	
+	// Property to show loading status (for debugging)
+	private string _loadStatus = "Loading...";
+	public string LoadStatus
+	{
+		get => _loadStatus;
+		set
+		{
+			if (_loadStatus != value)
+			{
+				_loadStatus = value;
+				PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(LoadStatus)));
+			}
+		}
+	}
+
+	public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
+
+	public async Task InitializeJacketImageAsync(HttpClient httpClient)
+	{
+		if (string.IsNullOrEmpty(JacketUrl))
+		{
+			LoadStatus = "No URL";
+			return;
+		}
+
+		try
+		{
+			// Try to download the WebP image
+			Debug.WriteLine($"[MusicRecordEntry] Downloading {JacketUrl}");
+			LoadStatus = "Downloading...";
+			
+			var response = await httpClient.GetAsync(JacketUrl);
+			
+			Debug.WriteLine($"[MusicRecordEntry] HTTP Status: {response.StatusCode} for {JacketUrl}");
+			
+			if (response.IsSuccessStatusCode)
+			{
+				LoadStatus = "Decoding...";
+				var imageBytes = await response.Content.ReadAsByteArrayAsync();
+				Debug.WriteLine($"[MusicRecordEntry] Downloaded {imageBytes.Length} bytes");
+				
+				// Convert byte array to IRandomAccessStream
+				using var memStream = new Windows.Storage.Streams.InMemoryRandomAccessStream();
+				using var dataWriter = new Windows.Storage.Streams.DataWriter(memStream);
+				dataWriter.WriteBytes(imageBytes);
+				await dataWriter.StoreAsync();
+				memStream.Seek(0);
+				
+				// Use SoftwareBitmap to decode WebP
+				Debug.WriteLine($"[MusicRecordEntry] Creating decoder...");
+				var decoder = await Windows.Graphics.Imaging.BitmapDecoder.CreateAsync(memStream);
+				Debug.WriteLine($"[MusicRecordEntry] Decoder created: {decoder.DecoderInformation.CodecId}");
+				
+				var softwareBitmap = await decoder.GetSoftwareBitmapAsync();
+				Debug.WriteLine($"[MusicRecordEntry] SoftwareBitmap: {softwareBitmap.PixelWidth}x{softwareBitmap.PixelHeight}, Format={softwareBitmap.BitmapPixelFormat}");
+				
+				// Convert to BGRA8 format that XAML supports
+				if (softwareBitmap.BitmapPixelFormat != Windows.Graphics.Imaging.BitmapPixelFormat.Bgra8 ||
+					softwareBitmap.BitmapAlphaMode == Windows.Graphics.Imaging.BitmapAlphaMode.Straight)
+				{
+					Debug.WriteLine($"[MusicRecordEntry] Converting format...");
+					softwareBitmap = Windows.Graphics.Imaging.SoftwareBitmap.Convert(
+						softwareBitmap, 
+						Windows.Graphics.Imaging.BitmapPixelFormat.Bgra8, 
+						Windows.Graphics.Imaging.BitmapAlphaMode.Premultiplied);
+				}
+				
+				Debug.WriteLine($"[MusicRecordEntry] Setting bitmap to UI...");
+				await JacketImage.SetBitmapAsync(softwareBitmap);
+				LoadStatus = "Success";
+				Debug.WriteLine($"[MusicRecordEntry] ✓ Successfully loaded WebP from {JacketUrl}");
+				
+				// Dispose the response
+				response.Dispose();
+			}
+			else
+			{
+				LoadStatus = $"HTTP {response.StatusCode}";
+				Debug.WriteLine($"[MusicRecordEntry] ✗ HTTP error {response.StatusCode} for {JacketUrl}");
+				var errorBody = await response.Content.ReadAsStringAsync();
+				Debug.WriteLine($"[MusicRecordEntry] Response: {errorBody.Substring(0, Math.Min(500, errorBody.Length))}");
+				response.Dispose();
+				// No local fallback: online-only
+			}
+		}
+		catch (TaskCanceledException ex)
+		{
+			LoadStatus = "Timeout";
+			Debug.WriteLine($"[MusicRecordEntry] ✗ Timeout loading {JacketUrl}: {ex.Message}");
+			// No local fallback: online-only
+		}
+		catch (HttpRequestException ex)
+		{
+			LoadStatus = $"Network error";
+			Debug.WriteLine($"[MusicRecordEntry] ✗ Network error loading {JacketUrl}: {ex.Message}");
+			// No local fallback: online-only
+		}
+		catch (Exception ex)
+		{
+			LoadStatus = $"Error: {ex.GetType().Name}";
+			Debug.WriteLine($"[MusicRecordEntry] ✗✗✗ Exception loading {JacketUrl}");
+			Debug.WriteLine($"[MusicRecordEntry] Exception Type: {ex.GetType().Name}");
+			Debug.WriteLine($"[MusicRecordEntry] Exception Message: {ex.Message}");
+			Debug.WriteLine($"[MusicRecordEntry] Stack Trace: {ex.StackTrace}");
+			if (ex.InnerException != null)
+			{
+				Debug.WriteLine($"[MusicRecordEntry] Inner Exception: {ex.InnerException.Message}");
+			}
+			// No local fallback: online-only
+		}
+	}
+
+	private async Task LoadFallbackImageAsync(string fallbackPath)
+	{
+		if (!File.Exists(fallbackPath))
+		{
+			Debug.WriteLine($"[MusicRecordEntry] ✗ Fallback file not found: {fallbackPath}");
+			LoadStatus = "No fallback";
+			return;
+		}
+
+		try
+		{
+			Debug.WriteLine($"[MusicRecordEntry] Loading fallback from {fallbackPath}");
+			var file = await Windows.Storage.StorageFile.GetFileFromPathAsync(fallbackPath);
+			using var stream = await file.OpenAsync(Windows.Storage.FileAccessMode.Read);
+			var decoder = await Windows.Graphics.Imaging.BitmapDecoder.CreateAsync(stream);
+			var softwareBitmap = await decoder.GetSoftwareBitmapAsync();
+			
+			if (softwareBitmap.BitmapPixelFormat != Windows.Graphics.Imaging.BitmapPixelFormat.Bgra8 ||
+				softwareBitmap.BitmapAlphaMode == Windows.Graphics.Imaging.BitmapAlphaMode.Straight)
+			{
+				softwareBitmap = Windows.Graphics.Imaging.SoftwareBitmap.Convert(
+					softwareBitmap, 
+					Windows.Graphics.Imaging.BitmapPixelFormat.Bgra8, 
+					Windows.Graphics.Imaging.BitmapAlphaMode.Premultiplied);
+			}
+			
+			await JacketImage.SetBitmapAsync(softwareBitmap);
+			LoadStatus = "Fallback";
+			Debug.WriteLine($"[MusicRecordEntry] ✓ Loaded fallback from {fallbackPath}");
+		}
+		catch (Exception ex)
+		{
+			LoadStatus = "Fallback failed";
+			Debug.WriteLine($"[MusicRecordEntry] ✗ Failed to load fallback: {ex.Message}");
+		}
+	}
+}
+
 internal class MapData
 {
 	public string Name { get; set; } = string.Empty;
@@ -637,7 +914,6 @@ internal class MapScene
 
 internal static class IconResolver
 {
-	// map resource types to icon files relative to assets/sekai_xray
 	public static string? GetIconRelativePath(string resourceType, string itemId)
 	{
 		return resourceType switch
@@ -706,4 +982,138 @@ internal static class IconResolver
 			_ => null
 		};
 	}
+}
+
+// Music master loader for musics.json (sekai-world)
+internal static class MusicMaster
+{
+	private const string SourceUrl = "https://sekai-world.github.io/sekai-master-db-cn-diff/musics.json";
+	private static readonly string LocalFallbackPath = IOPath.Combine(AppContext.BaseDirectory, "Assets", "musics.json");
+	private static readonly Dictionary<int, MusicMasterEntry> _map = new();
+	private static Task? _loading;
+
+	public static async Task EnsureLoadedAsync(HttpClient http)
+	{
+		if (_map.Count > 0) return;
+		if (_loading != null) { await _loading; return; }
+
+		_loading = LoadAsync(http);
+		try { await _loading; }
+		finally { _loading = null; }
+	}
+
+	private static async Task LoadAsync(HttpClient http)
+	{
+		if (await TryLoadFromRemoteAsync(http)) return;
+		if (await TryLoadFromLocalAsync()) return;
+
+		Debug.WriteLine("[MusicMaster] Failed to load from both network and bundled musics.json.");
+	}
+
+	private static async Task<bool> TryLoadFromRemoteAsync(HttpClient http)
+	{
+		try
+		{
+			var bytes = await http.GetByteArrayAsync(SourceUrl);
+			if (TryPopulateMap(bytes))
+			{
+				Debug.WriteLine($"[MusicMaster] Loaded {_map.Count} entries from remote source.");
+				return true;
+			}
+		}
+		catch (Exception ex)
+		{
+			Debug.WriteLine($"[MusicMaster] Remote load failed: {ex.Message}");
+		}
+
+		return false;
+	}
+
+	private static async Task<bool> TryLoadFromLocalAsync()
+	{
+		try
+		{
+			if (!File.Exists(LocalFallbackPath))
+			{
+				Debug.WriteLine($"[MusicMaster] Local musics.json not found: {LocalFallbackPath}");
+				return false;
+			}
+
+			var bytes = await File.ReadAllBytesAsync(LocalFallbackPath);
+			if (TryPopulateMap(bytes))
+			{
+				Debug.WriteLine($"[MusicMaster] Loaded {_map.Count} entries from local musics.json.");
+				return true;
+			}
+		}
+		catch (Exception ex)
+		{
+			Debug.WriteLine($"[MusicMaster] Local load failed: {ex.Message}");
+		}
+
+		return false;
+	}
+
+	private static bool TryPopulateMap(byte[] bytes)
+	{
+		try
+		{
+			using var doc = JsonDocument.Parse(bytes);
+			return TryPopulateMap(doc.RootElement);
+		}
+		catch (Exception ex)
+		{
+			Debug.WriteLine($"[MusicMaster] Parse failed: {ex.Message}");
+			_map.Clear();
+			return false;
+		}
+	}
+
+	private static bool TryPopulateMap(JsonElement root)
+	{
+		if (root.ValueKind != JsonValueKind.Array) return false;
+
+		_map.Clear();
+		foreach (var el in root.EnumerateArray())
+		{
+			if (!el.TryGetProperty("id", out var idEl)) continue;
+			int id = idEl.GetInt32();
+			string asset = el.TryGetProperty("assetbundleName", out var ab) ? ab.GetString() ?? string.Empty : string.Empty;
+
+			string title = el.TryGetProperty("title", out var t0) ? (t0.GetString() ?? string.Empty) : string.Empty;
+			string creator = string.Empty;
+			if (el.TryGetProperty("infos", out var infos) && infos.ValueKind == JsonValueKind.Array)
+			{
+				var first = infos.EnumerateArray().FirstOrDefault();
+				if (first.ValueKind == JsonValueKind.Object)
+				{
+					title = first.TryGetProperty("title", out var ti) ? (ti.GetString() ?? title) : title;
+					creator = first.TryGetProperty("creator", out var cr) ? (cr.GetString() ?? string.Empty) : string.Empty;
+				}
+			}
+
+			if (!string.IsNullOrWhiteSpace(asset))
+			{
+				_map[id] = new MusicMasterEntry { Id = id, AssetbundleName = asset, Title = title, Creator = creator };
+			}
+		}
+
+		return _map.Count > 0;
+	}
+
+	public static bool TryGet(int id, out MusicMasterEntry entry) => _map.TryGetValue(id, out entry!);
+
+	public static string BuildJacketUrl(string assetbundleName)
+	{
+		// storage path: .../music/jacket/{assetbundleName}/{assetbundleName}.webp
+		return $"https://storage.sekai.best/sekai-cn-assets/music/jacket/{assetbundleName}/{assetbundleName}.webp";
+	}
+}
+
+internal class MusicMasterEntry
+{
+	public int Id { get; set; }
+	public string AssetbundleName { get; set; } = string.Empty;
+	public string Title { get; set; } = string.Empty;
+	public string Creator { get; set; } = string.Empty;
 }

@@ -62,6 +62,17 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Content Remove="assets\musics.json" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="Assets\musics.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>Always</CopyToPublishDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- Align SDK BuildTools with the packaging project to avoid mismatches -->
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.5.240311000" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.26100.1742" />

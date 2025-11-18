@@ -41,6 +41,31 @@
                 </StackPanel>
 
                 <TextBlock x:Name="StatusText" TextWrapping="Wrap"/>
+
+                <!-- 收获唱片信息 -->
+                <StackPanel Spacing="6" Margin="0,16,0,0">
+                    <TextBlock FontSize="18" FontWeight="SemiBold" Text="收获唱片"/>
+                    <ListView x:Name="MusicRecordsList" SelectionMode="None" MaxHeight="260">
+                        <ListView.ItemTemplate>
+                            <DataTemplate x:DataType="local:MusicRecordEntry">
+                                <Grid Margin="0,6,0,6">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Border Width="56" Height="56" Margin="0,0,10,0" CornerRadius="4" Background="#20808080">
+                                        <Image Source="{x:Bind JacketImage, Mode=OneWay}" Stretch="UniformToFill"/>
+                                    </Border>
+                                    <StackPanel Grid.Column="1" Spacing="4">
+                                        <TextBlock TextWrapping="Wrap" Text="{x:Bind Info, Mode=OneWay}"/>
+                                        <HyperlinkButton Content="{x:Bind MetaUrl, Mode=OneWay}" NavigateUri="{x:Bind MetaUri, Mode=OneWay}"/>
+                                        <TextBlock Text="{x:Bind LoadStatus, Mode=OneWay}" FontSize="10" Foreground="Gray"/>
+                                    </StackPanel>
+                                </Grid>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                </StackPanel>
             </StackPanel>
         </ScrollViewer>
 
