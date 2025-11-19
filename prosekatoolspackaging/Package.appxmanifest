@@ -10,7 +10,7 @@
   <Identity
     Name="heosdee.prsktoolbox"
     Publisher="CN=6D473403-766E-4132-86CD-E6D1D99DAE8E"
-    Version="1.0.2.0" />
+    Version="1.0.3.0" />
 
   <Properties>
     <DisplayName>prsktoolbox</DisplayName>
