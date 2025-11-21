@@ -41,6 +41,8 @@ public sealed partial class Tab3Page : Page
 
 	// music record collection for left list
 	private readonly List<MusicRecordEntry> _musicRecords = new();
+	private readonly HashSet<int> _collectedMusicRecordIds = new();
+	private bool _hasCollectedMusicRecordData;
 	
 	// Configured HttpClient with proper headers
 	private static readonly HttpClient _http = new HttpClient
@@ -336,6 +338,9 @@ public sealed partial class Tab3Page : Page
 			await MysekaiMusicRecordMaster.EnsureLoadedAsync(_http);
 			await MusicMaster.EnsureLoadedAsync(_http);
 
+			// Collect already obtained music records for status display
+			LoadCollectedMusicRecords(root);
+
 			var maps = new Dictionary<int, MapData>();
 			_musicRecords.Clear();
 
@@ -392,16 +397,17 @@ public sealed partial class Tab3Page : Page
 								int viewId = ResolveMusicViewId(resourceId);
 								if (MusicMaster.TryGet(viewId, out var mm))
 								{
-									entry.Info = string.IsNullOrWhiteSpace(mm.Creator)
+									var baseInfo = string.IsNullOrWhiteSpace(mm.Creator)
 										? mm.Title
 										: $"{mm.Title} · {mm.Creator}";
+									entry.Info = AppendCollectStatus(baseInfo, resourceId);
 									entry.JacketUrl = MusicMaster.BuildJacketUrl(mm.AssetbundleName);
 									entry.MetaUrl = $"https://sekai.best/music/{viewId}";
 								}
 								else
 								{
 									// Fallback to old behavior if not found
-									entry.Info = $"ID: {resourceId} (ViewID: {viewId})";
+									entry.Info = AppendCollectStatus($"ID: {resourceId} (ViewID: {viewId})", resourceId);
 									entry.MetaUrl = $"https://sekai.best/music/{viewId}";
 									entry.JacketUrl = $"https://storage.sekai.best/sekai-cn-assets/music/jacket/jacket_s_{viewId:D3}/jacket_s_{viewId:D3}.webp";
 								}
@@ -667,6 +673,42 @@ public sealed partial class Tab3Page : Page
 
 		Debug.WriteLine($"[MusicRecord] Missing externalId for record {resourceId}, fallback to +30 offset.");
 		return resourceId + 30;
+	}
+
+	private void LoadCollectedMusicRecords(JsonElement root)
+	{
+		_collectedMusicRecordIds.Clear();
+		_hasCollectedMusicRecordData = false;
+
+		JsonElement lookupRoot = root;
+		if (!root.TryGetProperty("userMysekaiMusicRecords", out var collected) && root.TryGetProperty("updatedResources", out var updated))
+		{
+			lookupRoot = updated;
+		}
+
+		if (lookupRoot.TryGetProperty("userMysekaiMusicRecords", out collected) && collected.ValueKind == JsonValueKind.Array)
+		{
+			foreach (var item in collected.EnumerateArray())
+			{
+				if (item.TryGetProperty("mysekaiMusicRecordId", out var idEl))
+				{
+					_collectedMusicRecordIds.Add(idEl.GetInt32());
+				}
+			}
+			_hasCollectedMusicRecordData = _collectedMusicRecordIds.Count > 0;
+			Debug.WriteLine($"[MusicRecord] Loaded collected records: {_collectedMusicRecordIds.Count} entries.");
+		}
+		else
+		{
+			Debug.WriteLine("[MusicRecord] No userMysekaiMusicRecords found; collection status unavailable.");
+		}
+	}
+
+	private string AppendCollectStatus(string baseInfo, int resourceId)
+	{
+		if (!_hasCollectedMusicRecordData) return baseInfo;
+		var suffix = _collectedMusicRecordIds.Contains(resourceId) ? "已收集" : "未收集";
+		return $"{baseInfo} · {suffix}";
 	}
 
 	private void MapSelectCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
