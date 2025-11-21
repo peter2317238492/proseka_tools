@@ -332,7 +332,8 @@ public sealed partial class Tab3Page : Page
 				return;
 			}
 
-			// Ensure music master is loaded for records info/jacket
+			// Ensure music mapping and master are loaded for records info/jacket
+			await MysekaiMusicRecordMaster.EnsureLoadedAsync(_http);
 			await MusicMaster.EnsureLoadedAsync(_http);
 
 			var maps = new Dictionary<int, MapData>();
@@ -388,7 +389,7 @@ public sealed partial class Tab3Page : Page
 							{
 								// Use music master to resolve title/creator and jacket path
 								var entry = new MusicRecordEntry();
-								int viewId = resourceId + 30; // normalize id for musics.json
+								int viewId = ResolveMusicViewId(resourceId);
 								if (MusicMaster.TryGet(viewId, out var mm))
 								{
 									entry.Info = string.IsNullOrWhiteSpace(mm.Creator)
@@ -540,7 +541,8 @@ public sealed partial class Tab3Page : Page
 
 		bool showIcons = GetShowIconsCheckBox()?.IsChecked == true;
 
-		// Ensure music master available for overlay too
+		// Ensure music record mapping and music master available for overlay too
+		await MysekaiMusicRecordMaster.EnsureLoadedAsync(_http);
 		await MusicMaster.EnsureLoadedAsync(_http);
 
 		foreach (var p in map.Points)
@@ -581,7 +583,7 @@ public sealed partial class Tab3Page : Page
 							if (int.TryParse(item.Key, out var rid))
 							{
 								string? jacketUrl = null;
-								int viewId = rid + 30; // normalize id for musics.json
+								int viewId = ResolveMusicViewId(rid);
 								if (MusicMaster.TryGet(viewId, out var mm))
 								{
 									jacketUrl = MusicMaster.BuildJacketUrl(mm.AssetbundleName);
@@ -654,6 +656,17 @@ public sealed partial class Tab3Page : Page
 				}
 			}
 		}
+	}
+
+	private static int ResolveMusicViewId(int resourceId)
+	{
+		if (MysekaiMusicRecordMaster.TryGetExternalId(resourceId, out var externalId))
+		{
+			return externalId;
+		}
+
+		Debug.WriteLine($"[MusicRecord] Missing externalId for record {resourceId}, fallback to +30 offset.");
+		return resourceId + 30;
 	}
 
 	private void MapSelectCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -982,6 +995,112 @@ internal static class IconResolver
 			_ => null
 		};
 	}
+}
+
+// Mapper for mysekaiMusicRecords.json to resolve internal ids to external music ids
+internal static class MysekaiMusicRecordMaster
+{
+	private const string SourceUrl = "https://raw.githubusercontent.com/Team-Haruki/haruki-sekai-sc-master/main/master/mysekaiMusicRecords.json";
+	private static readonly string LocalFallbackPath = IOPath.Combine(AppContext.BaseDirectory, "Assets", "mysekaiMusicRecords.json");
+	private static readonly Dictionary<int, int> _map = new();
+	private static Task? _loading;
+
+	public static async Task EnsureLoadedAsync(HttpClient http)
+	{
+		if (_map.Count > 0) return;
+		if (_loading != null) { await _loading; return; }
+
+		_loading = LoadAsync(http);
+		try { await _loading; }
+		finally { _loading = null; }
+	}
+
+	private static async Task LoadAsync(HttpClient http)
+	{
+		if (await TryLoadFromRemoteAsync(http)) return;
+		if (await TryLoadFromLocalAsync()) return;
+
+		Debug.WriteLine("[MysekaiMusicRecordMaster] Failed to load mapping from both remote and local sources.");
+	}
+
+	private static async Task<bool> TryLoadFromRemoteAsync(HttpClient http)
+	{
+		try
+		{
+			var bytes = await http.GetByteArrayAsync(SourceUrl);
+			if (TryPopulateMap(bytes))
+			{
+				Debug.WriteLine($"[MysekaiMusicRecordMaster] Loaded mapping for {_map.Count} entries from remote.");
+				return true;
+			}
+		}
+		catch (Exception ex)
+		{
+			Debug.WriteLine($"[MysekaiMusicRecordMaster] Remote load failed: {ex.Message}");
+		}
+
+		return false;
+	}
+
+	private static async Task<bool> TryLoadFromLocalAsync()
+	{
+		try
+		{
+			if (!File.Exists(LocalFallbackPath))
+			{
+				Debug.WriteLine($"[MysekaiMusicRecordMaster] Local mapping not found: {LocalFallbackPath}");
+				return false;
+			}
+
+			var bytes = await File.ReadAllBytesAsync(LocalFallbackPath);
+			if (TryPopulateMap(bytes))
+			{
+				Debug.WriteLine($"[MysekaiMusicRecordMaster] Loaded mapping for {_map.Count} entries from local fallback.");
+				return true;
+			}
+		}
+		catch (Exception ex)
+		{
+			Debug.WriteLine($"[MysekaiMusicRecordMaster] Local load failed: {ex.Message}");
+		}
+
+		return false;
+	}
+
+	private static bool TryPopulateMap(byte[] bytes)
+	{
+		try
+		{
+			using var doc = JsonDocument.Parse(bytes);
+			return TryPopulateMap(doc.RootElement);
+		}
+		catch (Exception ex)
+		{
+			Debug.WriteLine($"[MysekaiMusicRecordMaster] Parse failed: {ex.Message}");
+			_map.Clear();
+			return false;
+		}
+	}
+
+	private static bool TryPopulateMap(JsonElement root)
+	{
+		if (root.ValueKind != JsonValueKind.Array) return false;
+
+		_map.Clear();
+		foreach (var el in root.EnumerateArray())
+		{
+			if (!el.TryGetProperty("id", out var idEl) || !el.TryGetProperty("externalId", out var extEl)) continue;
+
+			var trackType = el.TryGetProperty("mysekaiMusicTrackType", out var typeEl) ? typeEl.GetString() : null;
+			if (!string.Equals(trackType, "music", StringComparison.OrdinalIgnoreCase)) continue;
+
+			_map[idEl.GetInt32()] = extEl.GetInt32();
+		}
+
+		return _map.Count > 0;
+	}
+
+	public static bool TryGetExternalId(int id, out int externalId) => _map.TryGetValue(id, out externalId);
 }
 
 // Music master loader for musics.json (sekai-world)
