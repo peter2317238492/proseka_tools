@@ -43,6 +43,7 @@
     <None Remove="Pages\SettingsPage.xaml" />
     <None Remove="Pages\Tab2Page.xaml" />
     <None Remove="Pages\Tab3Page.xaml" />
+    <None Remove="Pages\OwnedCardsPage.xaml" />
   </ItemGroup>
 
   <ItemGroup>
@@ -80,6 +81,9 @@
     <!-- Align SDK BuildTools with the packaging project to avoid mismatches -->
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.5.240311000" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.26100.1742" />
+    <PackageReference Include="SkiaSharp" Version="3.119.1" />
+    <PackageReference Include="SkiaSharp.Svg" Version="1.60.0" />
+    <PackageReference Include="SkiaSharp.Views.WinUI" Version="3.119.1" />
   </ItemGroup>
 
   <ItemGroup>
@@ -106,6 +110,12 @@
 
   <ItemGroup>
     <Page Update="Pages\Tab2Page.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Page Update="Pages\OwnedCardsPage.xaml">
       <Generator>MSBuild:Compile</Generator>
     </Page>
   </ItemGroup>

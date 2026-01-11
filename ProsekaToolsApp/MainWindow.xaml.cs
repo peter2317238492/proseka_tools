@@ -48,6 +48,10 @@ namespace ProsekaToolsApp
                     case "Tab3":
                         ContentFrame.Navigate(typeof(Pages.Tab3Page));
                         break;
+
+                    case "Tab4":
+                        ContentFrame.Navigate(typeof(Pages.OwnedCardsPage));
+                        break;
                 }
             }
         }

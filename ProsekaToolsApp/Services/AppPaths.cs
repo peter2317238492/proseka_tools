@@ -17,6 +17,8 @@ namespace ProsekaToolsApp.Services
 
         public static string OutputMysekaiDir => Path.Combine(OutputRoot, "mysekai");
 
+        public static string OutputOwnedCardsDir => Path.Combine(OutputRoot, "owned_cards");
+
         public static string CapturesMysekaiDir => GetCapturesCategoryDir("mysekai");
 
         public static string CapturesSuiteDir => GetCapturesCategoryDir("suite");
