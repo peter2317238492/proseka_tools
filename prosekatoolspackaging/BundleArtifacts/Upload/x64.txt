@@ -1,3 +1,3 @@
-MainPackage=D:\prsk_tools\proseka_tools\prosekatoolspackaging\bin\x64\Release\Upload\prosekatoolspackaging_1.0.3.0_x64.msix
-SymbolPackage=D:\prsk_tools\proseka_tools\prosekatoolspackaging\bin\x64\Release\Upload\prosekatoolspackaging_1.0.3.0\prosekatoolspackaging_1.0.3.0_x64.appxsym
-ResourcePack=D:\prsk_tools\proseka_tools\prosekatoolspackaging\bin\x64\Release\Upload\prosekatoolspackaging_1.0.3.0_language-zh-hans.msix
+MainPackage=D:\prsk_tools\proseka_tools\prosekatoolspackaging\bin\x64\Release\Upload\prosekatoolspackaging_1.0.4.0_x64.msix
+SymbolPackage=D:\prsk_tools\proseka_tools\prosekatoolspackaging\bin\x64\Release\Upload\prosekatoolspackaging_1.0.4.0\prosekatoolspackaging_1.0.4.0_x64.appxsym
+ResourcePack=D:\prsk_tools\proseka_tools\prosekatoolspackaging\bin\x64\Release\Upload\prosekatoolspackaging_1.0.4.0_language-zh-hans.msix

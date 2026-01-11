@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -645,9 +645,29 @@ public sealed partial class Tab3Page : Page
 						if (!File.Exists(iconPath)) continue;
 						var bmpIcon = new Microsoft.UI.Xaml.Media.Imaging.BitmapImage(new Uri(iconPath));
 						var imgIconDefault = new Image { Source = bmpIcon, Width = 24, Height = 24 };
-						Canvas.SetLeft(imgIconDefault, displayX + idx * 28);
-						Canvas.SetTop(imgIconDefault, displayY - 12);
-						canvas.Children.Add(imgIconDefault);
+						var iconContainer = new Grid { Width = 24, Height = 24 };
+						iconContainer.Children.Add(imgIconDefault);
+						if (string.Equals(kv.Key, "mysekai_material", StringComparison.Ordinal) && item.Value > 1)
+						{
+							var badge = new Border
+							{
+								Background = new SolidColorBrush(Windows.UI.Color.FromArgb(160, 0, 0, 0)),
+								CornerRadius = new CornerRadius(2),
+								Padding = new Thickness(2, 0, 2, 0),
+								HorizontalAlignment = HorizontalAlignment.Right,
+								VerticalAlignment = VerticalAlignment.Bottom
+							};
+							badge.Child = new TextBlock
+							{
+								Text = item.Value.ToString(),
+								Foreground = new SolidColorBrush(Colors.White),
+								FontSize = 10
+							};
+							iconContainer.Children.Add(badge);
+						}
+						Canvas.SetLeft(iconContainer, displayX + idx * 28);
+						Canvas.SetTop(iconContainer, displayY - 12);
+						canvas.Children.Add(iconContainer);
 						if (rare)
 						{
 							var rect = new Rectangle { Width = 24 + 6, Height = 24 + 6, StrokeThickness = 2 };
