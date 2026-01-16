@@ -901,7 +901,7 @@ public class OwnedCardEntry : System.ComponentModel.INotifyPropertyChanged
 	private string _attribute = string.Empty;
 	private string _frameImageUrl = string.Empty;
 	private string _attributeImageUrl = string.Empty;
-	private ObservableCollection<string> _rarityStars = new();
+	private readonly ObservableCollection<string> _rarityStars = new();
 
 	public int CardId { get; set; }
 
@@ -986,14 +986,6 @@ public class OwnedCardEntry : System.ComponentModel.INotifyPropertyChanged
 	public ObservableCollection<string> RarityStars
 	{
 		get => _rarityStars;
-		set
-		{
-			if (_rarityStars != value)
-			{
-				_rarityStars = value;
-				PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(RarityStars)));
-			}
-		}
 	}
 
 	public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
