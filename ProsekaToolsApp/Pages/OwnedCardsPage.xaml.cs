@@ -432,16 +432,37 @@ public sealed partial class OwnedCardsPage : Page
 				entry.Attribute = card.Attr;
 				
 				// Load frame image
-				entry.FrameImage = new BitmapImage(new Uri(urls.FrameImage));
+				try
+				{
+					entry.FrameImage = new BitmapImage(new Uri(urls.FrameImage));
+				}
+				catch (Exception ex)
+				{
+					Debug.WriteLine($"[OwnedCards] Failed to load frame image: {ex.Message}");
+				}
 				
 				// Load attribute image
-				entry.AttributeImage = new BitmapImage(new Uri(urls.AttributeImage));
+				try
+				{
+					entry.AttributeImage = new BitmapImage(new Uri(urls.AttributeImage));
+				}
+				catch (Exception ex)
+				{
+					Debug.WriteLine($"[OwnedCards] Failed to load attribute image: {ex.Message}");
+				}
 				
 				// Load rarity stars
 				entry.RarityStars.Clear();
 				foreach (var starUrl in urls.RarityStars)
 				{
-					entry.RarityStars.Add(new BitmapImage(new Uri(starUrl)));
+					try
+					{
+						entry.RarityStars.Add(new BitmapImage(new Uri(starUrl)));
+					}
+					catch (Exception ex)
+					{
+						Debug.WriteLine($"[OwnedCards] Failed to load star image: {ex.Message}");
+					}
 				}
 				
 				entry.LoadStatus = "OK";
