@@ -4,6 +4,7 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="using:ProsekaToolsApp.Pages"
+    xmlns:media="using:Microsoft.UI.Xaml.Media.Imaging"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
@@ -71,7 +72,7 @@
                             <!-- 卡片主体 with frame -->
                             <Grid Width="156" Height="156">
                                 <!-- 边框 -->
-                                <Image Source="{x:Bind FrameImageUrl, Mode=OneWay}" Stretch="Fill"/>
+                                <Image Source="{x:Bind FrameImage, Mode=OneWay}" Stretch="Fill"/>
                                 
                                 <!-- 立绘 -->
                                 <Border Margin="8">
@@ -79,7 +80,7 @@
                                 </Border>
                                 
                                 <!-- 左上角属性图标 -->
-                                <Image Source="{x:Bind AttributeImageUrl, Mode=OneWay}" 
+                                <Image Source="{x:Bind AttributeImage, Mode=OneWay}" 
                                        Width="32" Height="32"
                                        HorizontalAlignment="Left" 
                                        VerticalAlignment="Top"
@@ -97,8 +98,8 @@
                                             </ItemsPanelTemplate>
                                         </ItemsControl.ItemsPanel>
                                         <ItemsControl.ItemTemplate>
-                                            <DataTemplate x:DataType="x:String">
-                                                <Image Source="{x:Bind}" Width="16" Height="16"/>
+                                            <DataTemplate x:DataType="media:BitmapImage">
+                                                <Image Source="{x:Bind Mode=OneWay}" Width="16" Height="16"/>
                                             </DataTemplate>
                                         </ItemsControl.ItemTemplate>
                                     </ItemsControl>

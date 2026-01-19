@@ -430,13 +430,20 @@ public sealed partial class OwnedCardsPage : Page
 				entry.CardImage = bitmapImage;
 				entry.Rarity = card.Rarity;
 				entry.Attribute = card.Attr;
-				entry.FrameImageUrl = urls.FrameImage;
-				entry.AttributeImageUrl = urls.AttributeImage;
+				
+				// Load frame image
+				entry.FrameImage = new BitmapImage(new Uri(urls.FrameImage));
+				
+				// Load attribute image
+				entry.AttributeImage = new BitmapImage(new Uri(urls.AttributeImage));
+				
+				// Load rarity stars
 				entry.RarityStars.Clear();
 				foreach (var starUrl in urls.RarityStars)
 				{
-					entry.RarityStars.Add(starUrl);
+					entry.RarityStars.Add(new BitmapImage(new Uri(starUrl)));
 				}
+				
 				entry.LoadStatus = "OK";
 			});
 		}
@@ -899,9 +906,9 @@ public class OwnedCardEntry : System.ComponentModel.INotifyPropertyChanged
 	private string _loadStatus = "Pending";
 	private int _rarity;
 	private string _attribute = string.Empty;
-	private string _frameImageUrl = string.Empty;
-	private string _attributeImageUrl = string.Empty;
-	private readonly ObservableCollection<string> _rarityStars = new();
+	private BitmapImage? _frameImage;
+	private BitmapImage? _attributeImage;
+	private readonly ObservableCollection<BitmapImage> _rarityStars = new();
 
 	public int CardId { get; set; }
 
@@ -957,33 +964,33 @@ public class OwnedCardEntry : System.ComponentModel.INotifyPropertyChanged
 		}
 	}
 
-	public string FrameImageUrl
+	public BitmapImage? FrameImage
 	{
-		get => _frameImageUrl;
+		get => _frameImage;
 		set
 		{
-			if (_frameImageUrl != value)
+			if (_frameImage != value)
 			{
-				_frameImageUrl = value;
-				PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(FrameImageUrl)));
+				_frameImage = value;
+				PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(FrameImage)));
 			}
 		}
 	}
 
-	public string AttributeImageUrl
+	public BitmapImage? AttributeImage
 	{
-		get => _attributeImageUrl;
+		get => _attributeImage;
 		set
 		{
-			if (_attributeImageUrl != value)
+			if (_attributeImage != value)
 			{
-				_attributeImageUrl = value;
-				PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(AttributeImageUrl)));
+				_attributeImage = value;
+				PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(AttributeImage)));
 			}
 		}
 	}
 
-	public ObservableCollection<string> RarityStars
+	public ObservableCollection<BitmapImage> RarityStars
 	{
 		get => _rarityStars;
 	}
