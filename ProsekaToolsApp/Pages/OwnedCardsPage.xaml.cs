@@ -6,6 +6,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
+using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
@@ -30,13 +31,19 @@ namespace ProsekaToolsApp.Pages;
 
 public sealed partial class OwnedCardsPage : Page
 {
+	private const int MaxStatusLines = 200;
 	private string? _selectedFile;
 	private string? _lastLoadedJson;
 	private int _cardLoadVersion;
+	private volatile bool _isUnloading;
+	private volatile bool _isPageLoaded;
+	private readonly TaskCompletionSource<bool> _pageLoadedTcs = new();
 	private readonly ObservableCollection<OwnedCardEntry> _cards = new();
 	private readonly CardImageCacheService _cacheService = new();
 	private readonly SemaphoreSlim _cardDatabaseGate = new(1, 1);
 	private List<SekaiCard>? _cardDatabase;
+	private readonly SemaphoreSlim _attributeUrlGate = new(1, 1);
+	private readonly Dictionary<string, string> _attributeUrlCache = new();
 
 	private readonly HttpClient _http;
 
@@ -45,6 +52,19 @@ public sealed partial class OwnedCardsPage : Page
 	public OwnedCardsPage()
 	{
 		InitializeComponent();
+		
+		Loaded += (_, __) =>
+		{
+			_isPageLoaded = true;
+			_pageLoadedTcs.TrySetResult(true);
+			Debug.WriteLine("[OwnedCards] Page loaded, DispatcherQueue available: " + (DispatcherQueue != null));
+		};
+		
+		Unloaded += (_, __) =>
+		{
+			_isUnloading = true;
+			Interlocked.Increment(ref _cardLoadVersion);
+		};
 		var handler = new HttpClientHandler
 		{
 			AutomaticDecompression = System.Net.DecompressionMethods.GZip | System.Net.DecompressionMethods.Deflate
@@ -64,6 +84,11 @@ public sealed partial class OwnedCardsPage : Page
 		{
 			CardsGrid.ItemsSource = _cards;
 		}
+	}
+
+	private Task SetStatusUIAsync(string message, bool isError = false)
+	{
+		return EnqueueOnUIAsync(() => SetStatus(message, isError));
 	}
 
 	private CheckBox? GetUseLatestCheckBox() => FindName("UseLatestCheckBox") as CheckBox;
@@ -104,6 +129,27 @@ public sealed partial class OwnedCardsPage : Page
 			var tb = GetSelectedFileTextBox();
 			if (tb != null) tb.Text = _selectedFile;
 			SetStatus($"已选择: {file.Name}");
+		}
+	}
+
+	private Task AppendStatusUIAsync(string message, bool isError = false)
+	{
+		return EnqueueOnUIAsync(() => AppendStatus(message, isError));
+	}
+
+	private Task ReportExceptionUIAsync(string context, Exception ex)
+	{
+		if (ex is COMException ce)
+		{
+			var msg = $"{context} COMException HRESULT=0x{ce.HResult:X8} msg={ce.Message}";
+			Debug.WriteLine(msg);
+			return AppendStatusUIAsync(msg, isError: true);
+		}
+		else
+		{
+			var msg = $"{context} {ex.GetType().Name} msg={ex.Message}";
+			Debug.WriteLine(msg);
+			return AppendStatusUIAsync(msg, isError: true);
 		}
 	}
 
@@ -321,27 +367,51 @@ public sealed partial class OwnedCardsPage : Page
 				return;
 			}
 
-			var ids = new HashSet<int>();
+			var cardDefaults = new Dictionary<int, string>();
 			foreach (var el in cardsArray.EnumerateArray())
 			{
-				if (TryGetCardId(el, out var id)) ids.Add(id);
+				if (!TryGetCardId(el, out var id)) continue;
+				var defaultImage = TryGetString(el, "defaultImage", "defaultImageType") ?? string.Empty;
+				if (!cardDefaults.ContainsKey(id))
+				{
+					cardDefaults[id] = defaultImage;
+				}
+				else if (IsSpecialTraining(defaultImage))
+				{
+					cardDefaults[id] = defaultImage;
+				}
 			}
 
 			_cards.Clear();
-			foreach (var id in ids.OrderBy(i => i))
+			foreach (var id in cardDefaults.Keys.OrderBy(i => i))
 			{
-				_cards.Add(new OwnedCardEntry { CardId = id, LoadStatus = "Pending" });
+				cardDefaults.TryGetValue(id, out var defaultImage);
+				_cards.Add(new OwnedCardEntry
+				{
+					CardId = id,
+					DefaultImageType = defaultImage ?? string.Empty,
+					LoadStatus = "Pending"
+				});
 			}
 
 			var grid = GetCardsGrid();
 			if (grid != null) grid.ItemsSource = _cards;
 
-			SetStatus($"已加载 JSON: {IOPath.GetFileName(path)} (cards: {ids.Count})");
+			SetStatus($"已加载 JSON: {IOPath.GetFileName(path)} (cards: {cardDefaults.Count})");
+			
+			// 等待页面完全加载后再开始图片加载
+			if (!_isPageLoaded)
+			{
+				Debug.WriteLine("[OwnedCards] Waiting for page to load before starting image loading...");
+				await _pageLoadedTcs.Task;
+				Debug.WriteLine("[OwnedCards] Page loaded, starting image loading");
+			}
+			
 			await LoadCardImagesAsync(_cards.ToList());
 		}
 		catch (Exception ex)
 		{
-			SetStatus(ex.Message, isError: true);
+			await ReportExceptionUIAsync("[OwnedCards] LoadJsonAndPopulateCardsAsync failed", ex);
 		}
 	}
 
@@ -385,24 +455,20 @@ public sealed partial class OwnedCardsPage : Page
 
 	private async Task LoadCardImageAsync(OwnedCardEntry entry, SemaphoreSlim sem, int version)
 	{
-		// 在方法开始时捕获 DispatcherQueue 引用,以便在后台线程上也能使用
-		var dispatcherQueue = DispatcherQueue;
 		await sem.WaitAsync();
 		try
 		{
 			if (version != _cardLoadVersion) return;
-			var cached = await _cacheService.LoadCachedImageAsync(entry.CardId).ConfigureAwait(false);
-			if (cached != null)
+			
+			// 在 semaphore 之后捕获 DispatcherQueue，确保页面已加载
+			var dispatcherQueue = DispatcherQueue;
+			if (dispatcherQueue == null)
 			{
-				// 在 UI 线程上设置缓存的图片
-				await EnqueueOnUIAsync(dispatcherQueue, () =>
-				{
-					entry.CardImage = cached;
-					entry.LoadStatus = "Cached";
-				});
+				Debug.WriteLine($"[OwnedCards] DispatcherQueue is null for card {entry.CardId}, page may not be loaded yet");
+				entry.LoadStatus = "Page not ready";
 				return;
 			}
-
+			
 			await UpdateEntryStatusAsync(dispatcherQueue, entry, "Loading...");
 
 			var database = await GetCardDatabaseAsync().ConfigureAwait(false);
@@ -412,32 +478,164 @@ public sealed partial class OwnedCardsPage : Page
 				await UpdateEntryStatusAsync(dispatcherQueue, entry, "Card not found");
 				return;
 			}
+			var attrKey = NormalizeAttrValue(card.Attr);
+			await AppendStatusUIAsync($"[OwnedCards] Match id={card.Id} attr='{card.Attr}' normalized='{attrKey}'");
 
-			var urls = GetCardImageUrls(card, afterTraining: false);
-			var bitmap = await DownloadBitmapAsync(urls.CharacterImage).ConfigureAwait(false);
-			if (bitmap == null)
-			{
-				await UpdateEntryStatusAsync(dispatcherQueue, entry, "Download failed");
-				return;
-			}
-
-			_ = _cacheService.SaveCompositedImageAsync(entry.CardId, bitmap);
+			var cardAfterTraining = ShouldUseAfterTrainingCard(entry);
+			var starAfterTraining = ShouldUseAfterTrainingStar(entry, card);
+			var urls = GetCardImageUrls(card, afterTraining: cardAfterTraining, starAfterTraining: starAfterTraining);
 			
-			// BitmapImage 必须在 UI 线程上创建和设置
-			await EnqueueOnUIAsync(dispatcherQueue, async () =>
+			// Try to load from cache first (BitmapImage must be created on UI thread)
+			var cachedCardImage = await LoadCachedBitmapImageAsync(_cacheService.GetCachePath(entry.CardId, cardAfterTraining), dispatcherQueue).ConfigureAwait(false);
+			var cachedFrameImage = await LoadCachedBitmapImageAsync(_cacheService.GetFrameCachePath(card.Rarity), dispatcherQueue).ConfigureAwait(false);
+			var cachedAttributeImage = await LoadCachedBitmapImageAsync(_cacheService.GetAttributeCachePath(attrKey), dispatcherQueue).ConfigureAwait(false);
+			var cachedStarImage = await LoadCachedBitmapImageAsync(_cacheService.GetStarCachePath(afterTraining: starAfterTraining), dispatcherQueue).ConfigureAwait(false);
+			
+			// Download card image if not cached
+			BitmapImage? cardBitmapImage = cachedCardImage;
+			if (cardBitmapImage == null)
 			{
-				var bitmapImage = await CreateBitmapImageAsync(bitmap);
-				entry.CardImage = bitmapImage;
-				entry.LoadStatus = "OK";
+				var bitmap = await DownloadBitmapAsync(urls.CharacterImage).ConfigureAwait(false);
+				if (bitmap == null)
+				{
+					await UpdateEntryStatusAsync(dispatcherQueue, entry, "Download failed");
+					return;
+				}
+
+				await _cacheService.SaveCompositedImageAsync(entry.CardId, cardAfterTraining, bitmap).ConfigureAwait(false);
+				var pngBytes = await EncodeToPngBytesAsync(bitmap).ConfigureAwait(false);
+
+				await EnqueueOnUIAsync(dispatcherQueue, async () =>
+				{
+					cardBitmapImage = await CreateBitmapImageFromBytesAsync(pngBytes);
+				});
+			}
+			
+			// Download and cache decorative images if not cached
+			BitmapImage? frameImage = cachedFrameImage;
+			if (frameImage == null)
+			{
+				frameImage = await TryLoadFrameFromBase64Async(card.Rarity, dispatcherQueue).ConfigureAwait(false);
+			}
+			if (frameImage == null && !string.IsNullOrWhiteSpace(urls.FrameImage))
+			{
+				frameImage = await DownloadCacheAndCreateBitmapAsync(urls.FrameImage,
+					bitmap => _cacheService.SaveFrameAsync(card.Rarity, bitmap));
+			}
+			
+			BitmapImage? attributeImage = cachedAttributeImage;
+			string? resolvedAttributeUrl = null;
+			if (attributeImage == null)
+			{
+				attributeImage = await DownloadCacheAndCreateBitmapAsync(urls.AttributeImage,
+					bitmap => _cacheService.SaveAttributeAsync(attrKey, bitmap));
+				if (attributeImage == null)
+				{
+					resolvedAttributeUrl = await GetAttributeImageUrlAsync(card.Id, attrKey).ConfigureAwait(false);
+					if (!string.IsNullOrWhiteSpace(resolvedAttributeUrl))
+					{
+						attributeImage = await DownloadCacheAndCreateBitmapAsync(resolvedAttributeUrl,
+							bitmap => _cacheService.SaveAttributeAsync(attrKey, bitmap));
+					}
+				}
+			}
+			if (attributeImage == null)
+			{
+				var msg = $"[OwnedCards] Attr icon failed id={card.Id} attr='{attrKey}' url='{urls.AttributeImage}'";
+				if (!string.IsNullOrWhiteSpace(resolvedAttributeUrl))
+				{
+					msg += $" resolved='{resolvedAttributeUrl}'";
+				}
+				await EnqueueOnUIAsync(dispatcherQueue, () => AppendStatus(msg, isError: true));
+			}
+			
+			// Download and cache star images
+			var starImages = new List<BitmapImage>();
+			if (cachedStarImage != null)
+			{
+				// Use cached star for all stars
+				for (int i = 0; i < urls.RarityStars.Count; i++)
+				{
+					starImages.Add(cachedStarImage);
+				}
+			}
+			else if (urls.RarityStars.Count > 0)
+			{
+				// Download and cache the star image once
+				var starImage = await DownloadCacheAndCreateBitmapAsync(urls.RarityStars[0],
+					bitmap => _cacheService.SaveStarAsync(afterTraining: starAfterTraining, bitmap));
+				
+				if (starImage != null)
+				{
+					// Use same star image for all stars
+					for (int i = 0; i < urls.RarityStars.Count; i++)
+					{
+						starImages.Add(starImage);
+					}
+				}
+			}
+			
+			// Set all properties on UI thread
+			await EnqueueOnUIAsync(dispatcherQueue, () =>
+			{
+				entry.CardImage = cardBitmapImage;
+				entry.Rarity = card.Rarity;
+				entry.Attribute = card.Attr;
+				entry.FrameImage = frameImage;
+				entry.AttributeImage = attributeImage;
+				
+				entry.RarityStars.Clear();
+				// Add stars in reverse order so they stack from bottom to top
+				for (int i = starImages.Count - 1; i >= 0; i--)
+				{
+					entry.RarityStars.Add(starImages[i]);
+				}
+				
+				entry.LoadStatus = cachedCardImage != null ? "Cached" : "OK";
 			});
 		}
 		catch (Exception ex)
 		{
-			await UpdateEntryStatusAsync(dispatcherQueue, entry, $"Error: {ex.GetType().Name}");
+			ReportException($"[OwnedCards] Error loading card {entry.CardId}", ex);
+
+			var dispatcherQueue = DispatcherQueue;
+			if (dispatcherQueue != null)
+			{
+				await UpdateEntryStatusAsync(dispatcherQueue, entry, $"Error: {ex.GetType().Name}");
+			}
+			else
+			{
+				entry.LoadStatus = $"Error: {ex.GetType().Name}";
+			}
 		}
 		finally
 		{
 			sem.Release();
+		}
+	}
+
+	private void ReportException(string context, Exception ex)
+	{
+		try
+		{
+			if (ex is COMException ce)
+			{
+				var msg = $"{context} COMException HRESULT=0x{ce.HResult:X8} msg={ce.Message}";
+				Debug.WriteLine(msg);
+
+				// 左侧状态框输出（确保在 UI 线程）
+				_ = EnqueueOnUIAsync(() => AppendStatus(msg, isError: true));
+			}
+			else
+			{
+				var msg = $"{context} {ex.GetType().Name} msg={ex.Message}";
+				Debug.WriteLine(msg);
+				_ = EnqueueOnUIAsync(() => AppendStatus(msg, isError: true));
+			}
+		}
+		catch
+		{
+			// 避免异常上报本身再炸
 		}
 	}
 
@@ -447,6 +645,72 @@ public sealed partial class OwnedCardsPage : Page
 		{
 			entry.LoadStatus = status;
 		});
+	}
+
+	private async Task<BitmapImage?> LoadCachedBitmapImageAsync(string path, Microsoft.UI.Dispatching.DispatcherQueue dispatcherQueue)
+	{
+		if (!File.Exists(path)) return null;
+		try
+		{
+			var bytes = await File.ReadAllBytesAsync(path).ConfigureAwait(false);
+			BitmapImage? image = null;
+			await EnqueueOnUIAsync(dispatcherQueue, async () =>
+			{
+				image = await CreateBitmapImageFromBytesAsync(bytes);
+			});
+			return image;
+		}
+		catch
+		{
+			return null;
+		}
+	}
+
+	private async Task<BitmapImage?> TryLoadFrameFromBase64Async(int rarity, Microsoft.UI.Dispatching.DispatcherQueue dispatcherQueue)
+	{
+		if (rarity < 1 || rarity > 3) return null;
+
+		var base64Path = _cacheService.GetFrameBase64Path(rarity);
+		if (!File.Exists(base64Path)) return null;
+
+		try
+		{
+			var content = await File.ReadAllTextAsync(base64Path).ConfigureAwait(false);
+			var base64 = ExtractBase64Payload(content);
+			if (string.IsNullOrWhiteSpace(base64)) return null;
+
+			var bytes = Convert.FromBase64String(base64);
+			var pngPath = _cacheService.GetFrameCachePath(rarity);
+			if (!File.Exists(pngPath))
+			{
+				await File.WriteAllBytesAsync(pngPath, bytes).ConfigureAwait(false);
+			}
+
+			BitmapImage? image = null;
+			await EnqueueOnUIAsync(dispatcherQueue, async () =>
+			{
+				image = await CreateBitmapImageFromBytesAsync(bytes);
+			});
+			return image;
+		}
+		catch (Exception ex)
+		{
+			Debug.WriteLine($"[OwnedCards] Load base64 frame failed rarity={rarity}: {ex.Message}");
+			return null;
+		}
+	}
+
+	private static string ExtractBase64Payload(string content)
+	{
+		if (string.IsNullOrWhiteSpace(content)) return string.Empty;
+		var trimmed = content.Trim();
+		var marker = "base64,";
+		var index = trimmed.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
+		if (index >= 0)
+		{
+			return trimmed[(index + marker.Length)..].Trim();
+		}
+		return trimmed;
 	}
 
 	private async Task UpdateEntryImageAsync(Microsoft.UI.Dispatching.DispatcherQueue dispatcherQueue, OwnedCardEntry entry, BitmapImage image, string status)
@@ -460,19 +724,23 @@ public sealed partial class OwnedCardsPage : Page
 
 	private async Task EnqueueOnUIAsync(Microsoft.UI.Dispatching.DispatcherQueue dispatcherQueue, Action action)
 	{
-		var tcs = new TaskCompletionSource<bool>();
-		_ = dispatcherQueue.TryEnqueue(() =>
+		if (_isUnloading || dispatcherQueue == null) return;
+		var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+		if (!dispatcherQueue.TryEnqueue(() =>
+			{
+				try
+				{
+					action();
+					tcs.TrySetResult(true);
+				}
+				catch (Exception ex)
+				{
+					tcs.TrySetException(ex);
+				}
+			}))
 		{
-			try
-			{
-				action();
-				tcs.SetResult(true);
-			}
-			catch (Exception ex)
-			{
-				tcs.SetException(ex);
-			}
-		});
+			tcs.TrySetResult(false);
+		}
 		await tcs.Task;
 	}
 
@@ -483,19 +751,23 @@ public sealed partial class OwnedCardsPage : Page
 
 	private async Task EnqueueOnUIAsync(Microsoft.UI.Dispatching.DispatcherQueue dispatcherQueue, Func<Task> action)
 	{
-		var tcs = new TaskCompletionSource<bool>();
-		_ = dispatcherQueue.TryEnqueue(async () =>
+		if (_isUnloading || dispatcherQueue == null) return;
+		var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+		if (!dispatcherQueue.TryEnqueue(async () =>
+			{
+				try
+				{
+					await action();
+					tcs.TrySetResult(true);
+				}
+				catch (Exception ex)
+				{
+					tcs.TrySetException(ex);
+				}
+			}))
 		{
-			try
-			{
-				await action();
-				tcs.SetResult(true);
-			}
-			catch (Exception ex)
-			{
-				tcs.SetException(ex);
-			}
-		});
+			tcs.TrySetResult(false);
+		}
 		await tcs.Task;
 	}
 
@@ -543,16 +815,82 @@ public sealed partial class OwnedCardsPage : Page
 		return composite;
 	}
 
-	private static async Task<BitmapImage> CreateBitmapImageAsync(SoftwareBitmap bitmap)
+	private static async Task<byte[]> EncodeToPngBytesAsync(SoftwareBitmap bitmap)
 	{
 		using var stream = new InMemoryRandomAccessStream();
 		var encoder = await BitmapEncoder.CreateAsync(BitmapEncoder.PngEncoderId, stream);
 		encoder.SetSoftwareBitmap(bitmap);
 		await encoder.FlushAsync();
 		stream.Seek(0);
+		using var reader = new DataReader(stream);
+		var size = (uint)stream.Size;
+		await reader.LoadAsync(size);
+		var bytes = new byte[size];
+		reader.ReadBytes(bytes);
+		return bytes;
+	}
+
+	private static async Task<BitmapImage> CreateBitmapImageFromBytesAsync(byte[] bytes)
+	{
+		using var stream = new InMemoryRandomAccessStream();
+		using var writer = new DataWriter(stream);
+		writer.WriteBytes(bytes);
+		await writer.StoreAsync();
+		stream.Seek(0);
 		var image = new BitmapImage();
 		await image.SetSourceAsync(stream);
 		return image;
+	}
+
+	private async Task<BitmapImage?> DownloadCacheAndCreateBitmapAsync(string url, Func<SoftwareBitmap, Task<bool>> saveToCache)
+	{
+		try
+		{
+			var bitmap = await DownloadBitmapAsync(url).ConfigureAwait(false);
+			if (bitmap == null) return null;
+			
+			// Save to cache before creating BitmapImage to avoid concurrent access to SoftwareBitmap.
+			await saveToCache(bitmap).ConfigureAwait(false);
+			
+			var pngBytes = await EncodeToPngBytesAsync(bitmap).ConfigureAwait(false);
+
+			// Must create BitmapImage on UI thread
+			BitmapImage? result = null;
+			await EnqueueOnUIAsync(async () =>
+			{
+				result = await CreateBitmapImageFromBytesAsync(pngBytes);
+			});
+			return result;
+		}
+		catch (Exception ex)
+		{
+			await ReportExceptionUIAsync($"[OwnedCards] Failed to download/cache/create image from {url}", ex);
+			return null;
+		}
+	}
+
+	private async Task<BitmapImage?> DownloadAndCreateBitmapImageAsync(string url)
+	{
+		try
+		{
+			var bitmap = await DownloadBitmapAsync(url).ConfigureAwait(false);
+			if (bitmap == null) return null;
+			
+			var pngBytes = await EncodeToPngBytesAsync(bitmap).ConfigureAwait(false);
+
+			// Must create BitmapImage on UI thread
+			BitmapImage? result = null;
+			await EnqueueOnUIAsync(async () =>
+			{
+				result = await CreateBitmapImageFromBytesAsync(pngBytes);
+			});
+			return result;
+		}
+		catch (Exception ex)
+		{
+			await ReportExceptionUIAsync($"[OwnedCards] Failed to download/create image from {url}", ex);
+			return null;
+		}
 	}
 
 	private async Task<List<SekaiCard>> GetCardDatabaseAsync()
@@ -570,9 +908,18 @@ public sealed partial class OwnedCardsPage : Page
 				return _cardDatabase;
 			}
 
+			string json;
 			var apiUrl = "https://sekai-world.github.io/sekai-master-db-diff/cards.json";
-			var json = await _http.GetStringAsync(apiUrl).ConfigureAwait(false);
-			_cardDatabase = JsonSerializer.Deserialize<List<SekaiCard>>(json) ?? new List<SekaiCard>();
+			try
+			{
+				json = await _http.GetStringAsync(apiUrl).ConfigureAwait(false);
+			}
+			catch
+			{
+				var backupPath = Path.Combine(AppContext.BaseDirectory, "Assets", "cards_backup.json");
+				json = File.Exists(backupPath) ? await File.ReadAllTextAsync(backupPath).ConfigureAwait(false) : "[]";
+			}
+			_cardDatabase = ParseCardDatabaseJson(json);
 			return _cardDatabase;
 		}
 		catch (Exception ex)
@@ -586,31 +933,238 @@ public sealed partial class OwnedCardsPage : Page
 		}
 	}
 
-	private static CardImageUrls GetCardImageUrls(SekaiCard card, bool afterTraining)
+	private static CardImageUrls GetCardImageUrls(SekaiCard card, bool afterTraining, bool starAfterTraining)
 	{
 		var suffix = afterTraining ? "_after_training" : "_normal";
 		var baseUrl = "https://storage.sekai.best/sekai-jp-assets";
 		var characterUrl = $"{baseUrl}/thumbnail/chara/{card.AssetbundleName}{suffix}.webp";
-		var frameUrl = $"https://sekai.best/assets/cardFrame_S_{card.Rarity}-DkwuVAqt.png";
+		var isBirthday = IsBirthdayCard(card);
+		var frameUrl = isBirthday
+			? "https://sekai.best/assets/cardFrame_S_bd-CrsQsaNc.png"
+			: card.Rarity >= 4
+				? "https://sekai.best/assets/cardFrame_S_4-DkwuVAqt.png"
+				: string.Empty;
 
 		var attrMap = new Dictionary<string, string>
 		{
-			["cute"] = "icon_attribute_cute",
-			["cool"] = "icon_attribute_cool",
-			["pure"] = "icon_attribute_pure",
-			["happy"] = "icon_attribute_happy",
-			["mysterious"] = "icon_attribute_mysterious"
+			["cute"] = "icon_attribute_cute-BqKuT21a.png",
+			["cool"] = "icon_attribute_cool-Cm_EFAKA.png",
+			["pure"] = "icon_attribute_pure-DMCNUXNX.png",
+			["happy"] = "icon_attribute_happy-POeZUq3N.png",
+			["mysterious"] = "icon_attribute_mysterious-DRt6JUuH.png"
 		};
-		var attrKey = card.Attr?.ToLowerInvariant() ?? "cool";
-		var attrIcon = attrMap.GetValueOrDefault(attrKey, "icon_attribute_cool");
-		var attributeUrl = $"https://sekai.best/assets/{attrIcon}-Cm_EFAKA.png";
+		var attrKey = NormalizeAttrValue(card.Attr);
+		var attrIcon = attrMap.GetValueOrDefault(attrKey, "icon_attribute_cool-Cm_EFAKA.png");
+		var attributeUrl = $"https://sekai.best/assets/{attrIcon}";
 
-		var starUrl = afterTraining
+		var starUrl = starAfterTraining
 			? "https://sekai.best/assets/rarity_star_afterTraining-CUlLhfpl.png"
 			: "https://sekai.best/assets/rarity_star_normal-BYSplh9m.png";
 		var rarityStars = Enumerable.Repeat(starUrl, Math.Max(card.Rarity, 0)).ToList();
 
 		return new CardImageUrls(characterUrl, frameUrl, attributeUrl, rarityStars);
+	}
+
+	private static bool ShouldUseAfterTrainingStar(OwnedCardEntry entry, SekaiCard card)
+	{
+		if (IsBirthdayCard(card)) return true;
+		return IsSpecialTraining(entry.DefaultImageType);
+	}
+
+	private static bool ShouldUseAfterTrainingCard(OwnedCardEntry entry)
+	{
+		return IsSpecialTraining(entry.DefaultImageType);
+	}
+
+	private static bool IsBirthdayCard(SekaiCard card)
+	{
+		return !string.IsNullOrWhiteSpace(card.CardRarityType) &&
+			card.CardRarityType.Contains("birthday", StringComparison.OrdinalIgnoreCase);
+	}
+
+	private static List<SekaiCard> ParseCardDatabaseJson(string json)
+	{
+		using var doc = JsonDocument.Parse(json);
+		var root = doc.RootElement;
+
+		JsonElement cardsArray = default;
+		if (root.ValueKind == JsonValueKind.Array)
+		{
+			cardsArray = root;
+		}
+		else if (root.ValueKind == JsonValueKind.Object)
+		{
+			if (root.TryGetProperty("cards", out cardsArray) && cardsArray.ValueKind == JsonValueKind.Array)
+			{
+				// ok
+			}
+			else if (root.TryGetProperty("data", out cardsArray) && cardsArray.ValueKind == JsonValueKind.Array)
+			{
+				// ok
+			}
+		}
+
+		if (cardsArray.ValueKind != JsonValueKind.Array)
+		{
+			return new List<SekaiCard>();
+		}
+
+		var list = new List<SekaiCard>();
+		foreach (var el in cardsArray.EnumerateArray())
+		{
+			if (TryParseCard(el, out var card))
+			{
+				list.Add(card);
+			}
+		}
+		return list;
+	}
+
+	private static bool TryParseCard(JsonElement el, out SekaiCard card)
+	{
+		card = new SekaiCard();
+
+		if (!TryGetInt(el, out var id, "id", "cardId", "cardID", "card_id"))
+		{
+			return false;
+		}
+		card.Id = id;
+
+		card.AssetbundleName = TryGetString(el, "assetbundleName", "assetBundleName", "assetbundle_name") ?? string.Empty;
+		card.Attr = NormalizeAttrValue(TryGetString(el, "attr", "attribute", "cardAttrType", "cardAttributeType", "card_attr", "card_attribute") ?? string.Empty);
+		card.SupportUnit = TryGetString(el, "supportUnit", "support_unit") ?? string.Empty;
+		card.CardRarityType = TryGetString(el, "cardRarityType", "rarityType") ?? string.Empty;
+
+		if (TryGetInt(el, out var rarity, "rarity"))
+		{
+			card.Rarity = rarity;
+		}
+		else if (!string.IsNullOrWhiteSpace(card.CardRarityType))
+		{
+			card.Rarity = ParseTrailingInt(card.CardRarityType);
+		}
+
+		return true;
+	}
+
+	private static bool TryGetString(JsonElement el, out string? value, params string[] keys)
+	{
+		foreach (var key in keys)
+		{
+			if (el.TryGetProperty(key, out var prop) && prop.ValueKind == JsonValueKind.String)
+			{
+				value = prop.GetString();
+				return true;
+			}
+		}
+		value = null;
+		return false;
+	}
+
+	private static string? TryGetString(JsonElement el, params string[] keys)
+	{
+		return TryGetString(el, out var value, keys) ? value : null;
+	}
+
+	private static bool TryGetInt(JsonElement el, out int value, params string[] keys)
+	{
+		foreach (var key in keys)
+		{
+			if (!el.TryGetProperty(key, out var prop)) continue;
+			if (prop.ValueKind == JsonValueKind.Number && prop.TryGetInt32(out value))
+			{
+				return true;
+			}
+			if (prop.ValueKind == JsonValueKind.String && int.TryParse(prop.GetString(), out value))
+			{
+				return true;
+			}
+		}
+		value = 0;
+		return false;
+	}
+
+	private static int ParseTrailingInt(string? value)
+	{
+		if (string.IsNullOrWhiteSpace(value)) return 0;
+		for (int i = value.Length - 1; i >= 0; i--)
+		{
+			if (!char.IsDigit(value[i]))
+			{
+				var digits = value[(i + 1)..];
+				return int.TryParse(digits, out var result) ? result : 0;
+			}
+		}
+		return int.TryParse(value, out var v) ? v : 0;
+	}
+
+	private static string NormalizeAttrValue(string? value)
+	{
+		if (string.IsNullOrWhiteSpace(value)) return "cool";
+		var v = value.Trim().ToLowerInvariant();
+		string[] known = { "cute", "cool", "pure", "happy", "mysterious" };
+		foreach (var k in known)
+		{
+			if (v == k) return k;
+			if (v.EndsWith("_" + k, StringComparison.Ordinal)) return k;
+		}
+		return v;
+	}
+
+	private static bool IsSpecialTraining(string? value)
+	{
+		return !string.IsNullOrWhiteSpace(value) &&
+			value.Trim().Equals("special_training", StringComparison.OrdinalIgnoreCase);
+	}
+
+	private async Task<string?> GetAttributeImageUrlAsync(int cardId, string attrKey)
+	{
+		if (string.IsNullOrWhiteSpace(attrKey)) return null;
+		if (_attributeUrlCache.TryGetValue(attrKey, out var cached)) return cached;
+
+		await _attributeUrlGate.WaitAsync().ConfigureAwait(false);
+		try
+		{
+			if (_attributeUrlCache.TryGetValue(attrKey, out cached)) return cached;
+			var resolved = await TryResolveAttributeIconUrlFromCardPageAsync(cardId, attrKey).ConfigureAwait(false);
+			if (!string.IsNullOrWhiteSpace(resolved))
+			{
+				_attributeUrlCache[attrKey] = resolved;
+			}
+			return resolved;
+		}
+		finally
+		{
+			_attributeUrlGate.Release();
+		}
+	}
+
+	private async Task<string?> TryResolveAttributeIconUrlFromCardPageAsync(int cardId, string attrKey)
+	{
+		try
+		{
+			var url = $"https://sekai.best/card/{cardId}";
+			var html = await _http.GetStringAsync(url).ConfigureAwait(false);
+
+			var escapedAttr = Regex.Escape(attrKey);
+			var fullPattern = $@"https://sekai\.best/assets/[^""']*icon_attribute_{escapedAttr}[^""']*\.png";
+			var match = Regex.Match(html, fullPattern, RegexOptions.IgnoreCase);
+			if (match.Success) return match.Value;
+
+			var relativePattern = $@"icon_attribute_{escapedAttr}[^""']*\.png";
+			match = Regex.Match(html, relativePattern, RegexOptions.IgnoreCase);
+			if (match.Success)
+			{
+				return "https://sekai.best/assets/" + match.Value.TrimStart('/');
+			}
+
+			return null;
+		}
+		catch (Exception ex)
+		{
+			Debug.WriteLine($"[OwnedCards] Resolve attribute icon failed: {ex.Message}");
+			return null;
+		}
 	}
 
 	private async Task<SvgCardData?> FetchSvgDataAsync(int cardId)
@@ -842,6 +1396,27 @@ public sealed partial class OwnedCardsPage : Page
 			StatusText.ClearValue(TextBlock.ForegroundProperty);
 		}
 	}
+
+	private void AppendStatus(string message, bool isError = false)
+	{
+		if (StatusText == null) return;
+		var current = StatusText.Text ?? string.Empty;
+		var next = string.IsNullOrWhiteSpace(current) ? message : current + Environment.NewLine + message;
+		var lines = next.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None);
+		if (lines.Length > MaxStatusLines)
+		{
+			next = string.Join(Environment.NewLine, lines[^MaxStatusLines..]);
+		}
+		StatusText.Text = next;
+		if (isError)
+		{
+			StatusText.Foreground = new SolidColorBrush(Colors.IndianRed);
+		}
+		else
+		{
+			StatusText.ClearValue(TextBlock.ForegroundProperty);
+		}
+	}
 }
 
 internal class SekaiCard
@@ -860,6 +1435,9 @@ internal class SekaiCard
 
 	[JsonPropertyName("supportUnit")]
 	public string SupportUnit { get; set; } = string.Empty;
+
+	[JsonPropertyName("cardRarityType")]
+	public string CardRarityType { get; set; } = string.Empty;
 }
 
 internal record CardImageUrls(
@@ -888,8 +1466,24 @@ public class OwnedCardEntry : System.ComponentModel.INotifyPropertyChanged
 {
 	private BitmapImage? _cardImage;
 	private string _loadStatus = "Pending";
+	private int _rarity;
+	private string _attribute = string.Empty;
+	private string _defaultImageType = string.Empty;
+	private BitmapImage? _frameImage;
+	private BitmapImage? _attributeImage;
+	private readonly ObservableCollection<BitmapImage> _rarityStars = new();
 
 	public int CardId { get; set; }
+
+	public string DefaultImageType
+	{
+		get => _defaultImageType;
+		set
+		{
+			_defaultImageType = value ?? string.Empty;
+			PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(DefaultImageType)));
+		}
+	}
 
 	public BitmapImage? CardImage
 	{
@@ -915,6 +1509,63 @@ public class OwnedCardEntry : System.ComponentModel.INotifyPropertyChanged
 				PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(LoadStatus)));
 			}
 		}
+	}
+
+	public int Rarity
+	{
+		get => _rarity;
+		set
+		{
+			if (_rarity != value)
+			{
+				_rarity = value;
+				PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(Rarity)));
+			}
+		}
+	}
+
+	public string Attribute
+	{
+		get => _attribute;
+		set
+		{
+			if (_attribute != value)
+			{
+				_attribute = value;
+				PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(Attribute)));
+			}
+		}
+	}
+
+	public BitmapImage? FrameImage
+	{
+		get => _frameImage;
+		set
+		{
+			if (_frameImage != value)
+			{
+				_frameImage = value;
+				PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(FrameImage)));
+			}
+		}
+	}
+
+	public BitmapImage? AttributeImage
+	{
+		get => _attributeImage;
+		set
+		{
+			if (_attributeImage != value)
+			{
+				_attributeImage = value;
+				PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(AttributeImage)));
+			}
+		}
+	}
+
+	public ObservableCollection<BitmapImage> RarityStars
+	{
+		get => _rarityStars;
 	}
 
 	public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;

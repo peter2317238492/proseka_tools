@@ -66,10 +66,45 @@
                 <GridView.ItemTemplate>
                     <DataTemplate x:DataType="local:OwnedCardEntry">
                         <StackPanel Spacing="6" Width="180">
-                            <TextBlock Text="{x:Bind CardId, Mode=OneWay}"/>
-                            <Border BorderBrush="#33000000" BorderThickness="1" Width="156" Height="156">
-                                <Image Source="{x:Bind CardImage, Mode=OneWay}" Stretch="Uniform"/>
-                            </Border>
+                            <TextBlock Text="{x:Bind CardId, Mode=OneWay}" FontWeight="SemiBold"/>
+                            
+                            <!-- 卡片主体 with frame -->
+                            <Grid Width="156" Height="156">
+                                <!-- 边框 -->
+                                <Image Source="{x:Bind FrameImage, Mode=OneWay}" Stretch="Fill"/>
+                                
+                                <!-- 立绘 -->
+                                <Border Margin="8">
+                                    <Image Source="{x:Bind CardImage, Mode=OneWay}" Stretch="Uniform"/>
+                                </Border>
+                                
+                                <!-- 左上角属性图标 -->
+                                <Image Source="{x:Bind AttributeImage, Mode=OneWay}" 
+                                       Width="32" Height="32"
+                                       HorizontalAlignment="Left" 
+                                       VerticalAlignment="Top"
+                                       Margin="4"/>
+                                
+                                <!-- 左下角星级 -->
+                                <StackPanel Orientation="Vertical" 
+                                           HorizontalAlignment="Left" 
+                                           VerticalAlignment="Bottom"
+                                           Margin="4">
+                                    <ItemsControl ItemsSource="{x:Bind RarityStars, Mode=OneWay}">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <StackPanel Orientation="Vertical" Spacing="1"/>
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Image Source="{Binding}" Width="16" Height="16"/>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </Grid>
+                            
                             <TextBlock Text="{x:Bind LoadStatus, Mode=OneWay}" FontSize="10" Foreground="Gray"/>
                         </StackPanel>
                     </DataTemplate>
