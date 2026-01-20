@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Threading.Tasks;
 using Microsoft.UI.Xaml.Media.Imaging;
@@ -27,15 +27,17 @@ public class CardImageCacheService
 		Directory.CreateDirectory(_starsCacheDir);
 	}
 
-	public string GetCachePath(int cardId) => Path.Combine(_cacheDir, $"card_{cardId}.png");
+	public string GetCachePath(int cardId, bool afterTraining) => Path.Combine(_cacheDir, $"card_{cardId}_{(afterTraining ? "after" : "normal")}.png");
 	
 	public string GetFrameCachePath(int rarity) => Path.Combine(_framesCacheDir, $"frame_{rarity}.png");
+
+	public string GetFrameBase64Path(int rarity) => Path.Combine(_framesCacheDir, $"frame_{rarity}.txt");
 	
 	public string GetAttributeCachePath(string attribute) => Path.Combine(_attributesCacheDir, $"attr_{attribute}.png");
 	
 	public string GetStarCachePath(bool afterTraining) => Path.Combine(_starsCacheDir, $"star_{(afterTraining ? "after" : "normal")}.png");
 
-	public bool IsCached(int cardId) => File.Exists(GetCachePath(cardId));
+	public bool IsCached(int cardId, bool afterTraining) => File.Exists(GetCachePath(cardId, afterTraining));
 	
 	public bool IsFrameCached(int rarity) => File.Exists(GetFrameCachePath(rarity));
 	
@@ -43,9 +45,9 @@ public class CardImageCacheService
 	
 	public bool IsStarCached(bool afterTraining) => File.Exists(GetStarCachePath(afterTraining));
 
-	public async Task<BitmapImage?> LoadCachedImageAsync(int cardId)
+	public async Task<BitmapImage?> LoadCachedImageAsync(int cardId, bool afterTraining)
 	{
-		var path = GetCachePath(cardId);
+		var path = GetCachePath(cardId, afterTraining);
 		if (!File.Exists(path)) return null;
 
 		try
@@ -95,9 +97,9 @@ public class CardImageCacheService
 		}
 	}
 
-	public async Task<bool> SaveCompositedImageAsync(int cardId, SoftwareBitmap compositeBitmap)
+	public async Task<bool> SaveCompositedImageAsync(int cardId, bool afterTraining, SoftwareBitmap compositeBitmap)
 	{
-		var path = GetCachePath(cardId);
+		var path = GetCachePath(cardId, afterTraining);
 		try
 		{
 			using var stream = File.Open(path, FileMode.Create, FileAccess.Write, FileShare.Read);
