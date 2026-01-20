@@ -98,8 +98,8 @@
                                             </ItemsPanelTemplate>
                                         </ItemsControl.ItemsPanel>
                                         <ItemsControl.ItemTemplate>
-                                            <DataTemplate x:DataType="media:BitmapImage">
-                                                <Image Source="{x:Bind Mode=OneWay}" Width="16" Height="16"/>
+                                            <DataTemplate>
+                                                <Image Source="{Binding}" Width="16" Height="16"/>
                                             </DataTemplate>
                                         </ItemsControl.ItemTemplate>
                                     </ItemsControl>
