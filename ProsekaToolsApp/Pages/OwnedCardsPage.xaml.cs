@@ -391,18 +391,7 @@ public sealed partial class OwnedCardsPage : Page
 		try
 		{
 			if (version != _cardLoadVersion) return;
-			var cached = await _cacheService.LoadCachedImageAsync(entry.CardId).ConfigureAwait(false);
-			if (cached != null)
-			{
-				// 在 UI 线程上设置缓存的图片
-				await EnqueueOnUIAsync(dispatcherQueue, () =>
-				{
-					entry.CardImage = cached;
-					entry.LoadStatus = "Cached";
-				});
-				return;
-			}
-
+			
 			await UpdateEntryStatusAsync(dispatcherQueue, entry, "Loading...");
 
 			var database = await GetCardDatabaseAsync().ConfigureAwait(false);
@@ -414,48 +403,89 @@ public sealed partial class OwnedCardsPage : Page
 			}
 
 			var urls = GetCardImageUrls(card, afterTraining: false);
-			var bitmap = await DownloadBitmapAsync(urls.CharacterImage).ConfigureAwait(false);
-			if (bitmap == null)
+			
+			// Try to load from cache first
+			var cachedCardImage = await _cacheService.LoadCachedImageAsync(entry.CardId).ConfigureAwait(false);
+			var cachedFrameImage = await _cacheService.LoadCachedFrameAsync(card.Rarity).ConfigureAwait(false);
+			var cachedAttributeImage = await _cacheService.LoadCachedAttributeAsync(card.Attr).ConfigureAwait(false);
+			var cachedStarImage = await _cacheService.LoadCachedStarAsync(afterTraining: false).ConfigureAwait(false);
+			
+			// Download card image if not cached
+			BitmapImage? cardBitmapImage = cachedCardImage;
+			if (cardBitmapImage == null)
 			{
-				await UpdateEntryStatusAsync(dispatcherQueue, entry, "Download failed");
-				return;
-			}
-
-			_ = _cacheService.SaveCompositedImageAsync(entry.CardId, bitmap);
-			
-			// Download frame, attribute, and star images in parallel
-			var frameTask = DownloadAndCreateBitmapImageAsync(urls.FrameImage);
-			var attributeTask = DownloadAndCreateBitmapImageAsync(urls.AttributeImage);
-			var starTasks = urls.RarityStars.Select(url => DownloadAndCreateBitmapImageAsync(url)).ToArray();
-			
-			await Task.WhenAll(new[] { frameTask, attributeTask }.Concat(starTasks));
-			
-			// BitmapImage 必须在 UI 线程上创建和设置
-			await EnqueueOnUIAsync(dispatcherQueue, async () =>
-			{
-				var bitmapImage = await CreateBitmapImageAsync(bitmap);
-				entry.CardImage = bitmapImage;
-				entry.Rarity = card.Rarity;
-				entry.Attribute = card.Attr;
-				
-				// Set frame image
-				entry.FrameImage = await frameTask;
-				
-				// Set attribute image
-				entry.AttributeImage = await attributeTask;
-				
-				// Set rarity stars
-				entry.RarityStars.Clear();
-				foreach (var starTask in starTasks)
+				var bitmap = await DownloadBitmapAsync(urls.CharacterImage).ConfigureAwait(false);
+				if (bitmap == null)
 				{
-					var starImage = await starTask;
-					if (starImage != null)
-					{
-						entry.RarityStars.Add(starImage);
-					}
+					await UpdateEntryStatusAsync(dispatcherQueue, entry, "Download failed");
+					return;
 				}
 				
-				entry.LoadStatus = "OK";
+				_ = _cacheService.SaveCompositedImageAsync(entry.CardId, bitmap);
+				
+				await EnqueueOnUIAsync(dispatcherQueue, async () =>
+				{
+					cardBitmapImage = await CreateBitmapImageAsync(bitmap);
+				});
+			}
+			
+			// Download and cache decorative images if not cached
+			BitmapImage? frameImage = cachedFrameImage;
+			if (frameImage == null)
+			{
+				frameImage = await DownloadCacheAndCreateBitmapAsync(urls.FrameImage, 
+					bitmap => _cacheService.SaveFrameAsync(card.Rarity, bitmap));
+			}
+			
+			BitmapImage? attributeImage = cachedAttributeImage;
+			if (attributeImage == null)
+			{
+				attributeImage = await DownloadCacheAndCreateBitmapAsync(urls.AttributeImage,
+					bitmap => _cacheService.SaveAttributeAsync(card.Attr, bitmap));
+			}
+			
+			// Download and cache star images
+			var starImages = new List<BitmapImage>();
+			if (cachedStarImage != null)
+			{
+				// Use cached star for all stars
+				for (int i = 0; i < urls.RarityStars.Count; i++)
+				{
+					starImages.Add(cachedStarImage);
+				}
+			}
+			else if (urls.RarityStars.Count > 0)
+			{
+				// Download and cache the star image once
+				var starImage = await DownloadCacheAndCreateBitmapAsync(urls.RarityStars[0],
+					bitmap => _cacheService.SaveStarAsync(afterTraining: false, bitmap));
+				
+				if (starImage != null)
+				{
+					// Use same star image for all stars
+					for (int i = 0; i < urls.RarityStars.Count; i++)
+					{
+						starImages.Add(starImage);
+					}
+				}
+			}
+			
+			// Set all properties on UI thread
+			await EnqueueOnUIAsync(dispatcherQueue, () =>
+			{
+				entry.CardImage = cardBitmapImage;
+				entry.Rarity = card.Rarity;
+				entry.Attribute = card.Attr;
+				entry.FrameImage = frameImage;
+				entry.AttributeImage = attributeImage;
+				
+				entry.RarityStars.Clear();
+				foreach (var starImage in starImages)
+				{
+					entry.RarityStars.Add(starImage);
+				}
+				
+				entry.LoadStatus = cachedCardImage != null ? "Cached" : "OK";
 			});
 		}
 		catch (Exception ex)
@@ -580,6 +610,31 @@ public sealed partial class OwnedCardsPage : Page
 		var image = new BitmapImage();
 		await image.SetSourceAsync(stream);
 		return image;
+	}
+
+	private async Task<BitmapImage?> DownloadCacheAndCreateBitmapAsync(string url, Func<SoftwareBitmap, Task<bool>> saveToCache)
+	{
+		try
+		{
+			var bitmap = await DownloadBitmapAsync(url).ConfigureAwait(false);
+			if (bitmap == null) return null;
+			
+			// Save to cache (fire and forget)
+			_ = saveToCache(bitmap);
+			
+			// Must create BitmapImage on UI thread
+			BitmapImage? result = null;
+			await EnqueueOnUIAsync(async () =>
+			{
+				result = await CreateBitmapImageAsync(bitmap);
+			});
+			return result;
+		}
+		catch (Exception ex)
+		{
+			Debug.WriteLine($"[OwnedCards] Failed to download/cache/create image from {url}: {ex.Message}");
+			return null;
+		}
 	}
 
 	private async Task<BitmapImage?> DownloadAndCreateBitmapImageAsync(string url)
