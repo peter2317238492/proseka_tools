@@ -480,9 +480,10 @@ public sealed partial class OwnedCardsPage : Page
 				entry.AttributeImage = attributeImage;
 				
 				entry.RarityStars.Clear();
-				foreach (var starImage in starImages)
+				// Add stars in reverse order so they stack from bottom to top
+				for (int i = starImages.Count - 1; i >= 0; i--)
 				{
-					entry.RarityStars.Add(starImage);
+					entry.RarityStars.Add(starImages[i]);
 				}
 				
 				entry.LoadStatus = cachedCardImage != null ? "Cached" : "OK";

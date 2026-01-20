@@ -85,15 +85,15 @@
                                        VerticalAlignment="Top"
                                        Margin="4"/>
                                 
-                                <!-- 右下角星级 -->
-                                <StackPanel Orientation="Horizontal" 
-                                           HorizontalAlignment="Right" 
+                                <!-- 左下角星级 -->
+                                <StackPanel Orientation="Vertical" 
+                                           HorizontalAlignment="Left" 
                                            VerticalAlignment="Bottom"
                                            Margin="4">
                                     <ItemsControl ItemsSource="{x:Bind RarityStars, Mode=OneWay}">
                                         <ItemsControl.ItemsPanel>
                                             <ItemsPanelTemplate>
-                                                <StackPanel Orientation="Horizontal" Spacing="1"/>
+                                                <StackPanel Orientation="Vertical" Spacing="1"/>
                                             </ItemsPanelTemplate>
                                         </ItemsControl.ItemsPanel>
                                         <ItemsControl.ItemTemplate>
