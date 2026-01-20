@@ -423,6 +423,13 @@ public sealed partial class OwnedCardsPage : Page
 
 			_ = _cacheService.SaveCompositedImageAsync(entry.CardId, bitmap);
 			
+			// Download frame, attribute, and star images in parallel
+			var frameTask = DownloadAndCreateBitmapImageAsync(urls.FrameImage);
+			var attributeTask = DownloadAndCreateBitmapImageAsync(urls.AttributeImage);
+			var starTasks = urls.RarityStars.Select(url => DownloadAndCreateBitmapImageAsync(url)).ToArray();
+			
+			await Task.WhenAll(new[] { frameTask, attributeTask }.Concat(starTasks));
+			
 			// BitmapImage 必须在 UI 线程上创建和设置
 			await EnqueueOnUIAsync(dispatcherQueue, async () =>
 			{
@@ -431,37 +438,20 @@ public sealed partial class OwnedCardsPage : Page
 				entry.Rarity = card.Rarity;
 				entry.Attribute = card.Attr;
 				
-				// Load frame image
-				try
-				{
-					entry.FrameImage = new BitmapImage(new Uri(urls.FrameImage));
-				}
-				catch (Exception ex)
-				{
-					Debug.WriteLine($"[OwnedCards] Failed to load frame image: {ex.Message}");
-				}
+				// Set frame image
+				entry.FrameImage = await frameTask;
 				
-				// Load attribute image
-				try
-				{
-					entry.AttributeImage = new BitmapImage(new Uri(urls.AttributeImage));
-				}
-				catch (Exception ex)
-				{
-					Debug.WriteLine($"[OwnedCards] Failed to load attribute image: {ex.Message}");
-				}
+				// Set attribute image
+				entry.AttributeImage = await attributeTask;
 				
-				// Load rarity stars
+				// Set rarity stars
 				entry.RarityStars.Clear();
-				foreach (var starUrl in urls.RarityStars)
+				foreach (var starTask in starTasks)
 				{
-					try
+					var starImage = await starTask;
+					if (starImage != null)
 					{
-						entry.RarityStars.Add(new BitmapImage(new Uri(starUrl)));
-					}
-					catch (Exception ex)
-					{
-						Debug.WriteLine($"[OwnedCards] Failed to load star image: {ex.Message}");
+						entry.RarityStars.Add(starImage);
 					}
 				}
 				
@@ -590,6 +580,28 @@ public sealed partial class OwnedCardsPage : Page
 		var image = new BitmapImage();
 		await image.SetSourceAsync(stream);
 		return image;
+	}
+
+	private async Task<BitmapImage?> DownloadAndCreateBitmapImageAsync(string url)
+	{
+		try
+		{
+			var bitmap = await DownloadBitmapAsync(url).ConfigureAwait(false);
+			if (bitmap == null) return null;
+			
+			// Must create BitmapImage on UI thread
+			BitmapImage? result = null;
+			await EnqueueOnUIAsync(async () =>
+			{
+				result = await CreateBitmapImageAsync(bitmap);
+			});
+			return result;
+		}
+		catch (Exception ex)
+		{
+			Debug.WriteLine($"[OwnedCards] Failed to download/create image from {url}: {ex.Message}");
+			return null;
+		}
 	}
 
 	private async Task<List<SekaiCard>> GetCardDatabaseAsync()
