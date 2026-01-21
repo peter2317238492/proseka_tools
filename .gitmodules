@@ -1,3 +1,6 @@
 [submodule "sekai_xray"]
 	path = ProsekaToolsApp/Assets/sekai_xray
 	url = https://github.com/MiddleRed/pjsk-mysekai-xray.git
+[submodule "ProsekaToolsApp/Services/Calc"]
+	path = ProsekaToolsApp/Services/Calc
+	url = https://github.com/NeuraXmy/sekai-deck-recommend-cpp.git
