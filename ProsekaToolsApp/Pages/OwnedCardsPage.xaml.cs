@@ -32,6 +32,7 @@ namespace ProsekaToolsApp.Pages;
 public sealed partial class OwnedCardsPage : Page
 {
 	private const int MaxStatusLines = 200;
+	private const bool ShowLogOutput = false;
 	private string? _selectedFile;
 	private string? _lastLoadedJson;
 	private int _cardLoadVersion;
@@ -52,6 +53,11 @@ public sealed partial class OwnedCardsPage : Page
 	public OwnedCardsPage()
 	{
 		InitializeComponent();
+
+		if (!ShowLogOutput && StatusText != null)
+		{
+			StatusText.Visibility = Visibility.Collapsed;
+		}
 		
 		Loaded += (_, __) =>
 		{
@@ -1385,6 +1391,7 @@ public sealed partial class OwnedCardsPage : Page
 
 	private void SetStatus(string message, bool isError = false)
 	{
+		if (!ShowLogOutput) return;
 		if (StatusText == null) return;
 		StatusText.Text = message;
 		if (isError)
@@ -1399,6 +1406,7 @@ public sealed partial class OwnedCardsPage : Page
 
 	private void AppendStatus(string message, bool isError = false)
 	{
+		if (!ShowLogOutput) return;
 		if (StatusText == null) return;
 		var current = StatusText.Text ?? string.Empty;
 		var next = string.IsNullOrWhiteSpace(current) ? message : current + Environment.NewLine + message;

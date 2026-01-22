@@ -44,6 +44,7 @@
     <None Remove="Pages\Tab2Page.xaml" />
     <None Remove="Pages\Tab3Page.xaml" />
     <None Remove="Pages\OwnedCardsPage.xaml" />
+    <None Remove="Pages\DeckRecommendPage.xaml" />
   </ItemGroup>
 
   <ItemGroup>
@@ -124,11 +125,31 @@
     </Page>
   </ItemGroup>
 
+  <ItemGroup>
+    <Page Update="Pages\DeckRecommendPage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+  </ItemGroup>
+
   <!-- Always include packaged helper in output; FullTrustProcessLauncher will start it when packaged -->
   <ItemGroup>
     <None Include="Services\sssekai.exe">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>Always</CopyToPublishDirectory>
     </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="Services\Calc\deck_recommend_runner.py">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>Always</CopyToPublishDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="python\**\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>Always</CopyToPublishDirectory>
+    </Content>
   </ItemGroup>
 </Project>

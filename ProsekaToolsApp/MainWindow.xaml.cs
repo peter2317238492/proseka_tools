@@ -52,6 +52,9 @@ namespace ProsekaToolsApp
                     case "Tab4":
                         ContentFrame.Navigate(typeof(Pages.OwnedCardsPage));
                         break;
+                    case "Tab5":
+                        ContentFrame.Navigate(typeof(Pages.DeckRecommendPage));
+                        break;
                 }
             }
         }
