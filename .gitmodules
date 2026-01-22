@@ -4,3 +4,6 @@
 [submodule "ProsekaToolsApp/Services/Calc"]
 	path = ProsekaToolsApp/Services/Calc
 	url = https://github.com/NeuraXmy/sekai-deck-recommend-cpp.git
+[submodule "ProsekaToolsApp/Assets/master"]
+	path = ProsekaToolsApp/Assets/master
+	url = https://github.com/Sekai-World/sekai-master-db-diff.git
